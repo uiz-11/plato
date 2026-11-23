@@ -2,7 +2,7 @@
 
 *Date: 2026-11-23. Status: ready for implementation.*
 
-This document describes how Plato v1 is built. It implements [the product specification](product-specification.md) and [the wireframes](../wireframes/index.html).
+This document describes how Plato v1 is built. It implements [the product specification](product-specification.md) and [the wireframes](wireframes/index.html).
 
 - **Citations.** "Spec F5" or "spec §7" points to the specification. "WF-A2" points to a wireframe screen, and "WF-C1.3" to note 3 on that screen. The prefix keeps wireframe screens F1–F3 apart from spec features F1–F9. "Spec F2.3" is step 3 of F2. "R5" is a resolution in §13.
 - **Formatting.** **Bold** marks buttons, *italics* mark statuses and menu items, quotes mark other on-screen text, and `code` marks identifiers.
