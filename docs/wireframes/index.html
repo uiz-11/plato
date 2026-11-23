@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plato Wireframes</title>
+<style>
+  /* ---------- tokens ---------- */
+  :root {
+    --ink: #222; --mid: #6b6b6b; --faint: #bbb; --line: #ddd; --fill: #ececec;
+    --paper: #fff; --bg: #e9e9e6; --note: #fff6c2; --note-ink: #5a4d00;
+    --bw: 1.5px; --bw-strong: 2.5px;          /* border widths */
+    --r-s: 4px; --r-m: 8px; --r-l: 12px;      /* radii */
+    --hatch: repeating-linear-gradient(45deg, var(--fill) 0 6px, var(--paper) 6px 12px);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  code { font-size: 12px; }
+
+  /* ---------- page ---------- */
+  header.page, nav.toc, section.flow { max-width: 1640px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  header.page { padding-top: 32px; }
+  header.page h1 { margin: 0 0 4px; font-size: 26px; }
+  header.page p { margin: 4px 0; color: #555; max-width: 760px; }
+  nav.toc { padding-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border: 1px solid #aaa; border-radius: 999px;
+              padding: 3px 10px; font-size: 12px; background: #fafaf7; }
+  section.flow { padding-top: 28px; padding-bottom: 8px; }
+  section.flow:last-of-type { padding-bottom: 48px; }
+  section.flow > h2 { font-size: 18px; margin: 0 0 2px; padding-top: 12px; border-top: 2px solid #999; }
+  section.flow > p.sub { margin: 0 0 16px; color: #555; max-width: 760px; }
+  .row { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+  figure { margin: 0; }
+  figure.d { width: 780px; max-width: 100%; }
+  figure.m { width: 300px; max-width: 100%; }
+  figcaption { font-weight: 600; margin: 0 0 6px; font-size: 13px; }
+  figcaption span { color: var(--mid); font-weight: 400; }
+
+  /* ---------- desktop frame ---------- */
+  .win { width: 100%; height: 500px; background: var(--paper); border: 2px solid var(--ink);
+         border-radius: var(--r-l); overflow: hidden; display: flex; flex-direction: column; }
+  .win.fit { height: auto; min-height: 500px; }
+  .chrome { flex: none; height: 26px; border-bottom: var(--bw) solid var(--line); display: flex;
+            align-items: center; gap: 5px; padding: 0 10px; }
+  .chrome i { width: 9px; height: 9px; border-radius: 50%; border: var(--bw) solid var(--faint); }
+  .chrome .url { margin-left: 10px; flex: 1; max-width: 300px; height: 14px; border-radius: 7px; background: var(--fill);
+                 font-size: 9px; color: var(--mid); padding: 0 8px; line-height: 14px; }
+  .app { flex: 1; display: flex; min-height: 0; }
+  .side { width: 150px; flex: none; border-right: var(--bw) solid var(--line); padding: 12px 10px;
+          display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .side .logo { font-weight: 800; font-size: 15px; margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
+  .side .logo::before { content: ""; width: 16px; height: 16px; border: 2px solid var(--ink); border-radius: 5px; }
+  .side .nav { padding: 6px 8px; border-radius: var(--r-m); color: var(--mid); }
+  .side .nav.on { background: var(--fill); color: var(--ink); font-weight: 700; border: var(--bw) solid var(--ink); }
+  .side .btn { margin-top: 6px; }
+  .side .btn.on { background: var(--fill); }
+  .main { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .main.center { align-items: center; justify-content: center; text-align: center; }
+  .main.center > * { width: 100%; max-width: 540px; }
+  .main.player { align-items: center; padding-top: 36px; }   /* question screens: top-aligned column */
+  .main.player > * { width: 100%; max-width: 560px; }
+  .main.read { padding-top: 36px; }
+  .prose p { margin: 0 0 12px; font-size: 14px; line-height: 1.65; color: var(--ink); text-align: left; }
+  .prose p:last-child { margin-bottom: 0; }
+  .main.read > * { width: 100%; max-width: 600px; align-self: center; }
+  .rail { width: 220px; flex: none; border-left: var(--bw) solid var(--line); padding: 14px 12px;
+          display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .ctr { text-align: center; }
+  .s b { color: var(--ink); }
+
+  /* ---------- session player: × | title + small | tag? | time | ⋯ ---------- */
+  .ptop { flex: none; display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+          border-bottom: var(--bw) solid var(--line); font-size: 12px; }
+  .ptop .ttl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+  .ptop .ttl small { display: block; font-weight: 400; font-size: 10px; color: var(--mid); }
+  .ptop .time { font-size: 11px; color: var(--mid); white-space: nowrap; }
+  .lsteps, .ticks { flex: none; display: grid; gap: 6px; padding: 10px 14px 9px; border-bottom: var(--bw) solid var(--line); }
+  .lsteps { grid-template-columns: repeat(5, 1fr); }
+  .ticks { grid-auto-flow: column; gap: 3px; }
+  .lsteps div { display: flex; flex-direction: column; gap: 4px; }
+  .lsteps i, .ticks i { height: 4px; border-radius: 2px; background: var(--line); }
+  .lsteps span { font-size: 10px; color: var(--mid); }
+  .lsteps .done i, .ticks i.done { background: var(--mid); }
+  .lsteps .done span::before { content: "✓ "; }
+  .lsteps .now i, .ticks i.now { background: var(--ink); }
+  .lsteps .now span { color: var(--ink); font-weight: 700; }
+  .lsteps .optl i { background: repeating-linear-gradient(90deg, var(--faint) 0 5px, transparent 5px 8px); }
+  .lsteps .optl.now i { background: var(--ink); }
+  .pfoot { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-top: var(--bw) solid var(--line); }
+  .acts { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+  .acts .grow { flex: 1; font-size: 11px; color: var(--mid); }
+  .prompt { font-size: 11px; color: var(--mid); text-align: center; }
+  .conf { display: flex; gap: 8px; }
+  .conf > * { flex: 1; }
+
+  /* ---------- phone frame ---------- */
+  .phone { position: relative; width: 100%; height: 600px; overflow: hidden; background: var(--paper);
+           border: 2px solid var(--ink); border-radius: 26px; display: flex; flex-direction: column; }
+  .phone.fit { height: auto; min-height: 600px; }
+  .sb { height: 20px; flex: none; display: flex; justify-content: space-between; padding: 4px 18px 0;
+        font-size: 9px; color: var(--mid); }
+  .hdr { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px 8px;
+         border-bottom: var(--bw) solid var(--line); font-weight: 600; font-size: 13px; }
+  .hdr .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hdr .grow small { display: block; font-weight: 400; font-size: 10px; color: var(--mid); }
+  .phone .ic { width: 32px; height: 32px; }
+  .phone .opt { min-height: 44px; }
+  .phone .btn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  .phone .h { font-size: 17px; }
+  .pbody { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .foot { flex: none; padding: 10px 12px 14px; border-top: var(--bw) solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .tabbar { flex: none; display: flex; border-top: var(--bw) solid var(--ink); }
+  .tabbar div { flex: 1; text-align: center; padding: 8px 0 12px; font-size: 10px; color: var(--mid); }
+  .tabbar div::before { content: ""; display: block; width: 16px; height: 16px; margin: 0 auto 3px;
+                        border: var(--bw) solid var(--faint); border-radius: var(--r-s); }
+  .tabbar div.on { color: var(--ink); font-weight: 700; }
+  .tabbar div.on::before { border-color: var(--ink); background: var(--fill); }
+  .msteps { flex: none; padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .msteps .bars { display: flex; gap: 3px; }
+  .msteps .bars i { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+  .msteps .bars i.done { background: var(--mid); }
+  .msteps .bars i.now { background: var(--ink); }
+  .msteps .bars i.optl { background: repeating-linear-gradient(90deg, var(--faint) 0 5px, transparent 5px 8px); }
+  .msteps span { font-size: 10px; color: var(--mid); }
+
+  /* ---------- type ---------- */
+  .xl { font-weight: 800; font-size: 28px; line-height: 1.15; }
+  .h { font-weight: 800; font-size: 22px; line-height: 1.25; }   /* page title / the question */
+  .t { font-weight: 700; font-size: 13px; }                     /* item title */
+  .b { font-size: 13px; color: var(--ink); line-height: 1.5; }  /* content */
+  .s { font-size: 11px; color: var(--mid); }                    /* metadata */
+  .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mid); font-weight: 700; }
+  .eyebrow { font-size: 11px; color: var(--mid); }
+  .num { font-weight: 800; font-size: 26px; line-height: 1; color: var(--mid); }
+
+  /* ---------- primitives ---------- */
+  .ic { width: 22px; height: 22px; border: var(--bw) solid var(--ink); border-radius: 6px; display: grid;
+        place-items: center; font-size: 11px; flex: none; color: var(--ink); }
+  .btn { border: 2px solid var(--ink); border-radius: var(--r-m); padding: 8px 14px; text-align: center;
+         font-weight: 700; font-size: 13px; background: var(--ink); color: #fff; white-space: nowrap; }
+  .btn.ghost { background: var(--paper); color: var(--ink); }
+  .btn.sm { padding: 4px 9px; font-size: 11px; border-width: var(--bw); }
+  .btn.off { opacity: .35; }
+  .btns { display: flex; gap: 8px; justify-content: center; }
+  .btns.fill > * { flex: 1; }
+  .box { border: var(--bw) solid var(--ink); border-radius: var(--r-l); padding: 12px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+  .box.soft { border-color: var(--line); background: var(--fill); }        /* your own text */
+  .box.lead { gap: 10px; padding: 16px; }
+  .box.ok { border-left: 5px solid var(--ink); }                             /* feedback / callout */
+  .input { border: var(--bw) solid var(--mid); border-radius: var(--r-m); padding: 8px 10px; color: var(--mid);
+           font-size: 13px; min-height: 36px; text-align: left; }
+  .input.area { min-height: 90px; }
+  .input.area.lg { min-height: 160px; }
+  .input.filled { color: var(--ink); }
+  .edges { font-size: 12px; color: var(--mid); line-height: 1.5; }
+  /* confetti: the one intentional splash of colour, on completion screens */
+  .celebrate { position: relative; }
+  .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .main.center > .confetti { max-width: none; }
+  .celebrate > :not(.confetti) { position: relative; }
+  .confetti i { position: absolute; width: 7px; height: 12px; border-radius: 2px; }
+  .confetti i:nth-child(3n) { width: 8px; height: 8px; border-radius: 50%; }
+  .confetti i:nth-child(4n) { width: 12px; height: 4px; }
+  /* status tags: spec statuses only */
+  .tag { display: inline-block; border: 1px solid var(--mid); border-radius: var(--r-s); padding: 0 5px;
+         font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: var(--mid);
+         vertical-align: middle; white-space: nowrap; font-weight: 600; }
+  .tag.dark { border-color: var(--ink); color: var(--ink); }                 /* ready, open */
+  .tag.solid { background: var(--ink); color: #fff; border-color: var(--ink); } /* completed, done, complete */
+  /* content labels: uncertain, general knowledge, contested, recommended, policy */
+  .label { font-size: 11px; font-style: italic; color: var(--mid); white-space: nowrap; }
+  .label::before { content: "["; } .label::after { content: "]"; }
+  .label.strong { font-style: normal; font-weight: 700; color: var(--ink); }
+  .link { text-decoration: underline; font-size: 12px; }
+  .link::after { content: " ↗"; }
+  .lk { display: inline-flex; gap: 6px; align-items: center; margin-top: 5px; border: var(--bw) solid var(--line);
+        border-radius: var(--r-m); padding: 3px 8px; font-size: 11px; }
+  .lk::after { content: "↗"; }
+  .spread { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .item { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; text-align: left; }
+  .item:last-child { border-bottom: 0; }
+  .item .grow { flex: 1; min-width: 0; }
+  .item .bar { margin-top: 4px; }
+  .item { min-height: 38px; }
+  .item .num { font-size: 16px; width: 20px; }
+  .s.yr { width: 40px; text-align: right; }
+  .list { border-top: 1px solid var(--line); }                               /* borderless group */
+  .dot { width: 13px; height: 13px; border-radius: 50%; border: var(--bw) solid var(--ink); flex: none; }
+  .dot.half { background: linear-gradient(90deg, var(--ink) 50%, transparent 50%); }
+  .dot.full { background: var(--ink); }
+  .dot.skip { border-style: dashed; border-color: var(--mid); }
+  .dot.lock { border-radius: 3px; border-color: var(--faint); }
+  .chev::after { content: "›"; color: var(--mid); font-size: 16px; }
+  .bar { height: 7px; border-radius: var(--r-s); background: var(--line); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--ink); }
+  .ln { height: 7px; border-radius: var(--r-s); background: var(--line); }
+  .w40{width:40%}.w60{width:60%}.w70{width:70%}.w80{width:80%}.w90{width:90%}
+  .lines { display: flex; flex-direction: column; gap: 5px; }
+  .cite { display: inline-block; font-size: 8px; border: 1px solid var(--mid); border-radius: 3px;
+          padding: 0 3px; color: var(--mid); margin-left: 2px; vertical-align: middle; }
+  .tick { display: inline-grid; place-items: center; width: 14px; height: 14px; border: var(--bw) solid var(--ink);
+          border-radius: 3px; font-size: 10px; flex: none; }
+  .tick.on { background: var(--ink); color: #fff; }
+  .tabs { display: flex; gap: 16px; border-bottom: var(--bw) solid var(--line); font-size: 12px; }
+  .tabs span { padding: 4px 0 6px; color: var(--mid); }
+  .tabs span.on { color: var(--ink); font-weight: 700; border-bottom: var(--bw-strong) solid var(--ink); margin-bottom: -1.5px; }
+  .opt { display: flex; gap: 8px; align-items: center; border: var(--bw) solid var(--mid); border-radius: var(--r-m);
+         padding: 8px 10px; font-size: 13px; text-align: left; }
+  .opt.sm { padding: 4px 8px; }
+  .opt::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: var(--bw) solid var(--mid); flex: none; }
+  .opt.sel { border: var(--bw-strong) solid var(--ink); background: var(--fill); }
+  .opt.sel::before { background: var(--ink); border-color: var(--ink); }
+  .opt.right { border: var(--bw-strong) solid var(--ink); }
+  .opt.right::after { content: "✓ correct"; margin-left: auto; font-size: 10px; font-weight: 700; }
+  .opt.wrong::after { content: "✗ your pick"; margin-left: auto; font-size: 10px; color: var(--mid); }
+  .toast { border: var(--bw) solid var(--ink); border-radius: var(--r-m); padding: 6px 6px 6px 12px; background: var(--fill);
+           display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; }
+  .hi { outline: 2px dashed var(--ink); outline-offset: 3px; border-radius: 6px; padding: 0 12px; }
+
+  /* ---------- richer pieces ---------- */
+  .illo { width: 96px; height: 96px; border-radius: 50%; border: 2px dashed var(--faint); background: var(--hatch);
+          display: grid; place-items: center; font-size: 9px; color: var(--mid); margin: 0 auto; }
+  .illo.sm { width: 64px; height: 64px; }
+  .main.center > .illo, .main.player > .illo { width: 96px; flex: none; }
+  .card .tag, .thumb .tag { align-self: flex-start; }
+  .phone .diagram { height: 80px; }
+  .diagram { height: 110px; border: var(--bw) dashed var(--faint); border-radius: var(--r-m); background: var(--hatch);
+             display: grid; place-items: center; font-size: 11px; color: var(--mid); }
+  .cover { border-radius: var(--r-m); background: var(--hatch); border: var(--bw) solid var(--line);
+           display: grid; place-items: center; font-weight: 800; color: var(--mid); flex: none; }
+  /* days shown up: one number, no pattern to read */
+  .showed { display: flex; align-items: center; gap: 8px; }
+  .showed .big { font-size: 26px; font-weight: 800; line-height: 1; }
+  .showed .s { line-height: 1.3; }
+  .split { display: flex; border-radius: var(--r-l); overflow: hidden; background: var(--ink); color: #fff; }
+  .split .go { flex: 1; padding: 14px 16px; font-size: 16px; font-weight: 700; }
+  .split .len { flex: none; display: flex; align-items: center; gap: 4px; padding: 0 14px; font-size: 13px;
+                font-weight: 600; border-left: var(--bw) solid #666; }
+  .phone .split .go, .phone .split .len { min-height: 48px; display: flex; align-items: center; }
+  .hero { display: flex; gap: 16px; align-items: center; }
+  .hero .cover { width: 44px; height: 44px; font-size: 11px; }
+  .hero .grow { flex: 1; min-width: 0; }
+  /* sticky notes: your own words, pinned under each key question */
+  .board { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 2px 6px; }
+  .sticky { position: relative; width: 140px; min-height: 96px; padding: 10px 10px 22px; background: #f3f1e6;
+            border: 1px solid #d8d4bf; border-radius: 2px; box-shadow: 0 2px 0 rgba(0,0,0,.08);
+            font: 15px/1.3 Georgia, "Times New Roman", serif; color: var(--ink); text-align: left; transform: rotate(-1.5deg); }
+  .sticky:nth-child(even) { transform: rotate(1.2deg); }
+  .sticky::after { content: ""; position: absolute; right: -1px; bottom: -1px; border-style: solid; border-width: 12px 12px 0 0;
+                   border-color: transparent var(--paper) transparent transparent; }   /* folded corner */
+  .sticky small { position: absolute; left: 10px; bottom: 6px; font: 10px ui-sans-serif, system-ui, sans-serif; color: var(--mid); }
+  .sticky.add { background: transparent; border: var(--bw) dashed var(--faint); box-shadow: none; transform: none;
+                color: var(--mid); font: 12px ui-sans-serif, system-ui, sans-serif; display: grid; place-items: center; text-align: center; }
+  .sticky.add::after, .sticky.writing::after { display: none; }
+  .sticky.writing { background: var(--paper); border: var(--bw-strong) solid var(--ink); transform: none; color: var(--mid); }
+  .sticky.writing .cur { display: inline-block; width: 1.5px; height: 16px; background: var(--ink); vertical-align: -3px; margin-right: 2px; }
+  .qhead { display: flex; align-items: baseline; gap: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { border: var(--bw) solid var(--ink); border-radius: var(--r-l); overflow: hidden; display: flex; flex-direction: column; }
+  .card .cover { height: 54px; border: 0; border-radius: 0; border-bottom: var(--bw) solid var(--line); }
+  .card .in { padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .card.req { border-style: dashed; border-color: var(--mid); }
+  /* mastery: concept · four dots · word (no bars, no card) */
+  .mastery { display: grid; grid-template-columns: 1fr 52px 110px; gap: 10px; align-items: center; padding: 7px 0;
+             border-bottom: 1px solid var(--line); font-size: 12px; text-align: left; }
+  .mastery:last-child { border-bottom: 0; }
+  .lvl { display: flex; gap: 3px; }
+  .lvl i { width: 8px; height: 8px; border-radius: 50%; border: var(--bw) solid var(--ink); }
+  .lvl i.on { background: var(--ink); }
+  .lvl.none i { border-color: var(--faint); }
+  .concepts { margin: 0 0 6px 6px; padding: 0 0 0 16px; border-left: 2px solid var(--line); }
+  .concepts .mastery { padding: 5px 0; font-size: 11px; border-bottom: 0; }
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .thumb { background: var(--paper); border: 2px solid var(--ink); border-radius: var(--r-l); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .thumb .when { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--mid); font-weight: 700;
+                 border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .thumb .split .go { padding: 10px 12px; font-size: 13px; }
+  .thumb .split .len { font-size: 11px; padding: 0 10px; }
+  .beyond { border-top: var(--bw) solid var(--line); padding-top: 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+  .gap { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; text-align: left; }
+  .gi { width: 18px; flex: none; text-align: center; color: var(--mid); font-size: 14px; line-height: 18px; }
+
+  /* callouts */
+  .n { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+       background: var(--note-ink); color: var(--note); font-size: 9px; font-weight: 800;
+       vertical-align: middle; flex: none; font-style: normal; text-transform: none; letter-spacing: 0; }
+  ol.notes { list-style: none; margin: 10px 0 0; padding: 10px 12px; background: var(--note); color: var(--note-ink);
+             border-radius: var(--r-s); font-size: 12px; display: flex; flex-direction: column; gap: 5px; }
+  ol.notes li { display: flex; gap: 6px; align-items: flex-start; }
+  ol.notes li .n { margin-top: 1px; }
+  ol.notes .ref { opacity: .7; font-size: 11px; }
+  ul.a11y { background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--r-m); padding: 12px 12px 12px 30px;
+            margin: 0; max-width: 820px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+
+  .map, .sflow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .map { margin-top: 8px; }
+  .sflow { margin: 0 0 18px; max-width: 900px; }
+  .map .st, .sflow .st { border: 2px solid var(--ink); border-radius: var(--r-m); padding: 6px 10px; background: var(--paper);
+             font-weight: 700; font-size: 12px; }
+  .map .st.off { border-style: dashed; border-color: var(--mid); color: var(--mid); }
+  .map .st small, .sflow .st small { display: block; font-weight: 400; color: var(--mid); font-size: 10px; }
+  .map .ar, .sflow .ar { color: var(--mid); }
+
+  @media (max-width: 700px) {
+    .side, .rail { display: none; }
+    .cols, .cards, .thumbs { grid-template-columns: 1fr; }
+    .lsteps div:not(.now) span { display: none; }   /* keep the current step's label */
+  }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <h1>Plato v1 wireframes</h1>
+  <p>Low-fidelity, desktop-first, from <code>docs/v1/product-specification.md</code>. Structure and flow only. Yellow notes cite the spec.</p>
+  <p><b>Build note:</b> these sizes are approximate. In the app, follow shadcn/ui's standard design (this repo: <code>base-nova</code> style, neutral base colour, <code>--radius: 0.625rem</code>, lucide icons) for font sizes, spacing, padding, radius and components. Use the default type scale (<code>text-sm</code> body, <code>text-xs</code> meta, <code>text-2xl</code>/<code>text-3xl</code> headings), Tailwind's 4px spacing scale, and stock components (Button, Card, Tabs, Badge, Checkbox, RadioGroup, DropdownMenu, Sheet, Sonner toasts) rather than custom ones. Where a wireframe and shadcn differ, shadcn wins.</p>
+  <p><b>Navigation:</b> sidebar with Today, Library and New request. Course pages have tabs. Sessions run full-window, without the sidebar.</p>
+  <div class="map">
+    <div class="st">Request</div><span class="ar">→</span>
+    <div class="st off">Creation<small>offline</small></div><span class="ar">→</span>
+    <div class="st">Learn<small>sessions</small></div><span class="ar">→</span>
+    <div class="st">Checkpoint</div><span class="ar">→</span>
+    <div class="st">Complete</div><span class="ar">→</span>
+    <div class="st">Retain<small>reviews</small></div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#today">A · Today</a>
+  <a href="#request">B · Request</a>
+  <a href="#course">C · Course page</a>
+  <a href="#session">D · Session</a>
+  <a href="#lesson">E · Lesson</a>
+  <a href="#practice">F · Practice</a>
+  <a href="#checkpoint">G · Checkpoint</a>
+  <a href="#library">H · Library</a>
+  <a href="#mobile">I · Phone</a>
+  <a href="#a11y">J · Accessibility</a>
+</nav>
+
+<!-- ============================================================ -->
+<section class="flow" id="today">
+  <h2>A. Today</h2>
+  <p class="sub">Home. One primary action: start a session.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>A1 · Today <span>F8</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / today</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav on">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+          </div>
+          <div class="main">
+            <div class="spread">
+              <span class="h">Today</span>
+              <div class="showed"><span class="big">37</span><span class="s">days you've<br>shown up <i class="n">4</i></span></div>
+            </div>
+            <div class="cols">
+              <div class="stack">
+                <div class="box lead">
+                  <div><div class="t">Your session <i class="n">1</i></div><div class="s">9 reviews, then Lesson 4 from Recall</div></div>
+                  <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div>
+                </div>
+                <div class="btns fill"><span class="btn ghost sm">Reviews only · ~3 min</span><span class="btn ghost sm">Full lesson <i class="n">2</i></span></div>
+              </div>
+              <div class="stack">
+                <div class="k">In progress <i class="n">3</i></div>
+                <div class="list">
+                  <div class="item"><div class="grow"><div class="t">How mRNA vaccines work</div><div class="s">2 of 12 completed</div><div class="bar"><i style="width:17%"></i></div></div><span class="chev"></span></div>
+                  <div class="item"><div class="grow"><div class="t">Bayesian reasoning basics</div><div class="s">3 of 6 completed · Checkpoint 1 open</div><div class="bar"><i style="width:50%"></i></div></div><span class="chev"></span></div>
+                </div>
+                <div class="k">Ready</div>
+                <div class="list"><div class="item"><div class="grow"><div class="t">Stoic philosophy</div><div class="s">10 lessons · ~4 hrs</div></div><span class="chev"></span></div></div>
+                <div class="k">Requested</div>
+                <div class="list">
+                  <div class="item"><div class="grow s">Climate tipping points</div><span class="tag">requested</span></div>
+                  <div class="item"><div class="grow"><div class="s">Fix my laptop's Wi-Fi</div><div class="s">A support request, not a topic to learn</div></div><span class="tag">not built</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>One sentence says what the session holds. The length menu offers 10/15/20/30 min and is remembered.</span></li>
+        <li><i class="n">2</i><span>Full lesson: no reviews, the next lesson from where you left off, whatever its length.</span></li>
+        <li><i class="n">3</i><span>Course rows share one shape and open the course page.</span></li>
+        <li><i class="n">4</i><span>Total days you've shown up, all time: a number that only grows, with no streak and no gaps to notice. <span class="ref">F8</span></span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>A2 · Session card states <span>F8</span></figcaption>
+      <div class="thumbs">
+        <div class="thumb">
+          <div class="when">First run <i class="n">1</i></div>
+          <div class="illo sm">illustration</div>
+          <div class="t ctr">What do you want to learn?</div>
+          <div class="s ctr">Describe it and Plato builds a course. This takes a while.</div>
+          <div class="btn">Request course</div>
+        </div>
+        <div class="thumb">
+          <div class="when">Only a Ready course</div>
+          <div class="t">Stoic philosophy is ready</div>
+          <div class="s">10 lessons · ~4 hrs</div>
+          <div class="btn">▶ Start Lesson 1</div>
+        </div>
+        <div class="thumb">
+          <div class="when">Reviews due, nothing in progress</div>
+          <div class="t">9 reviews due</div>
+          <div class="btn">▶ Start reviews</div>
+        </div>
+        <div class="thumb">
+          <div class="when">No reviews due or daily limit reached</div>
+          <div class="t">Your session</div>
+          <div class="s">Reviews done for today. Next: Lesson 4 from Recall.</div>
+          <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div>
+        </div>
+        <div class="thumb">
+          <div class="when">Back after 2+ weeks</div>
+          <div class="t">Welcome back</div>
+          <div class="s">Overdue reviews are spread over the next few days.</div>
+          <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div>
+        </div>
+        <div class="thumb">
+          <div class="when">All caught up</div>
+          <div class="illo sm">illustration</div>
+          <div class="t ctr">All caught up</div>
+          <div class="s ctr">Next reviews tomorrow.</div>
+          <div class="btn ghost">Request course</div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Every state has one clear next step. “Only a Ready course” goes straight to Lesson 1.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="request">
+  <h2>B. Course request</h2>
+  <p class="sub">One free-text box. No follow-up questions. Submitting returns you to Today.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>B1 · New request <span>F1</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / new</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm on">+ New request</div>
+          </div>
+          <div class="main player">
+            <div class="h">What do you want to learn, and why?</div>
+            <div class="input area lg filled">My mum asked if mRNA vaccines change your DNA and I couldn't answer. I did high school biology. About 5 hours. Use CDC and Nature reviews if possible.</div>
+            <div class="s">Say what you know, how deep to go, how long you have, and which sources you trust.</div>
+            <div class="acts"><span class="btn ghost">Cancel</span><span class="btn">Request course</span></div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <figure class="d">
+      <figcaption>B2 · Back on Today <span>F1</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / today</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav on">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+          </div>
+          <div class="main">
+            <div class="toast"><span>✓ Request sent. It'll appear under Ready once it's built.</span><span class="ic">×</span></div>
+            <div class="h">Today</div>
+            <div class="k">Requested</div>
+            <div class="list hi"><div class="item"><div class="grow s">My mum asked if mRNA vaccines change your DNA and… <i class="n">1</i></div><span class="tag">requested</span></div></div>
+            <div class="ln w60"></div><div class="ln w40"></div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>The row shows the start of your own words. Nothing is generated at submit time. <span class="ref">§1</span></span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="course">
+  <h2>C. Course page</h2>
+  <p class="sub">Three tabs: Syllabus, Answers, Sources. The header (cover, title, course details, main button) stays on every tab.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>C1 · Syllabus, where a course opens <span>F3 · F4 · F6 · F8 · F9</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / courses / mrna-vaccines / syllabus</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav on">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+          </div>
+          <div class="main">
+            <div class="hero">
+              <div class="cover">mRNA</div>
+              <div class="grow"><div><span class="h">How mRNA vaccines work</span> <span class="tag">in progress</span></div><div class="s">12 lessons · ~5 hrs · as of Nov 2026</div></div>
+              <span class="btn">▶ Continue Lesson 4 <i class="n">1</i></span>
+            </div>
+            <div class="tabs"><span class="on">Syllabus</span><span>Answers</span><span>Sources</span></div>
+            <div class="spread"><div class="bar" style="flex:1"><i style="width:17%"></i></div><span class="s">2 of 12 completed</span></div>
+            <div class="edges">Not covered: self-amplifying RNA (not needed for your questions) and manufacturing (doesn't fit 5 hours). General education, not medical advice. <i class="n">2</i></div>
+            <div class="k">Module 1 · The basics</div>
+            <div class="list">
+              <div class="item"><span class="dot full"></span><span class="grow">1. What is mRNA?</span><span class="s">Completed</span><span class="s">Mastery ▾ <i class="n">3</i></span></div>
+              <div class="concepts">
+                <div class="mastery"><span>mRNA is degraded within days</span><span class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="s">Strong</span></div>
+                <div class="mastery"><span>mRNA carries a protein recipe</span><span class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="s">Good</span></div>
+                <div class="mastery"><span>Vaccines deliver mRNA, not virus</span><span class="lvl none"><i></i><i></i><i></i><i></i></span><span class="s">Not yet reviewed</span></div>
+              </div>
+              <div class="item"><span class="dot full"></span><span class="grow">2. From mRNA to protein</span><span class="s">Completed</span><span class="s">Mastery ▸</span></div>
+              <div class="item"><span class="dot skip"></span><span class="grow">3. Lipid nanoparticles <i class="n">4</i></span><span class="s">Skipped</span><span class="ic">⋯</span></div>
+              <div class="item"><span class="dot lock"></span><span class="grow s">Checkpoint 1 <i class="n">5</i></span><span class="s">Locked · complete Lesson 3</span></div>
+            </div>
+            <div class="k">Module 2 · The immune response</div>
+            <div class="list">
+              <div class="item"><span class="dot half"></span><span class="grow t">4. Spike protein design</span><span class="s">In progress · at Recall</span><span class="ic">⋯</span></div>
+              <div class="item"><span class="dot"></span><span class="grow">5. Antibodies and T cells</span><span class="s">Not started</span><span class="ic">⋯</span></div>
+              <div class="item"><span class="dot"></span><span class="grow">6. Memory cells</span><span class="s">Not started</span><span class="ic">⋯</span></div>
+              <div class="item"><span class="dot lock"></span><span class="grow s">Checkpoint 2</span><span class="s">Locked</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Starts a session with this course: due reviews first, then this lesson. The course becomes the one Today continues. Label follows state: Start Lesson 1 · Continue Lesson 4 · Open Checkpoint 1.</span></li>
+        <li><i class="n">2</i><span>What the course leaves out, and any policy note, in one line. Key questions are on Answers; the as-of date is in the header. <span class="ref">F3 · §8</span></span></li>
+        <li><i class="n">3</i><span>Mastery per concept lives here: a completed lesson expands into its concepts, indented under it. Four dots plus a word (Strong, Good, Shaky, Not yet reviewed). <span class="ref">F8</span></span></li>
+        <li><i class="n">4</i><span>Skipped lessons resume where you stopped. Mark via ⋯ (Undo toast). They block completion.</span></li>
+        <li><i class="n">5</i><span>Every row has a dot and the exact spec status. Locked rows say what unlocks them.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>C2 · Answers <span>F7 · key questions</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / courses / mrna-vaccines / answers</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav on">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+          </div>
+          <div class="main">
+            <div class="hero">
+              <div class="cover">mRNA</div>
+              <div class="grow"><div><span class="h">How mRNA vaccines work</span> <span class="tag">in progress</span></div><div class="s">12 lessons · ~5 hrs · as of Nov 2026</div></div>
+              <span class="btn">▶ Continue Lesson 4</span>
+            </div>
+            <div class="tabs"><span>Syllabus</span><span class="on">Answers</span><span>Sources</span></div>
+            <div class="s">Your notes. Not graded. <i class="n">1</i></div>
+            <div class="qhead"><span class="num">Q1</span><span class="t">Can mRNA vaccines alter human DNA?</span><span class="s">Lessons 1, 2, 3, 7</span></div>
+            <div class="board">
+              <div class="sticky">no — mRNA breaks down in a few days<small>Lesson 1</small></div>
+              <div class="sticky">it stays in the cytoplasm, never gets into the nucleus<small>Lesson 2</small></div>
+              <div class="sticky add">+ Add note</div>
+            </div>
+            <div class="qhead"><span class="num">Q2</span><span class="t">How does an mRNA vaccine train the immune system?</span><span class="s">Lessons 2, 4, 5, 6</span></div>
+            <div class="board">
+              <div class="sticky">the body practises on a harmless copy<small>Lesson 2</small></div>
+              <div class="sticky add">+ Add note</div>
+            </div>
+            <div class="qhead"><span class="num">Q3</span><span class="t">Why were mRNA vaccines developed so quickly?</span><span class="s">Lessons 9, 10, 11</span></div>
+            <div class="board">
+              <div class="sticky add">+ Add note <i class="n">2</i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Key questions, each with the lessons that advance it and your notes as stickies in your own words, tagged with their lesson. Click (tap on phone) to edit or delete.</span></li>
+        <li><i class="n">2</i><span>A question with no notes yet shows only the empty sticky.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>C3 · Sources <span>F9 · §7</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / courses / mrna-vaccines / sources</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav on">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+          </div>
+          <div class="main">
+            <div class="hero">
+              <div class="cover">mRNA</div>
+              <div class="grow"><div><span class="h">How mRNA vaccines work</span> <span class="tag">in progress</span></div><div class="s">12 lessons · ~5 hrs · as of Nov 2026</div></div>
+              <span class="btn">▶ Continue Lesson 4</span>
+            </div>
+            <div class="tabs"><span>Syllabus</span><span>Answers</span><span class="on">Sources</span></div>
+            <div class="k">Health agencies</div>
+            <div class="list">
+              <div class="item"><span class="num">1</span><span class="grow"><span class="link">CDC · Understanding mRNA vaccines</span></span><span class="s yr">2025</span></div>
+              <div class="item"><span class="num">3</span><span class="grow"><span class="link">WHO · Vaccine safety Q&amp;A</span></span><span class="s yr">2026</span></div>
+            </div>
+            <div class="k">Reviews and explainers <i class="n">1</i></div>
+            <div class="list">
+              <div class="item"><span class="num">2</span><span class="grow"><span class="link">Nature Reviews · mRNA vaccines</span></span><span class="s yr">2024</span></div>
+              <div class="item"><span class="num">4</span><span class="grow"><span class="link">Structural biology explainer</span></span><span class="s yr">2023</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Grouped by kind, dated in one column. Numbers match the citation chips in briefs.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="session">
+  <h2>D. Session</h2>
+  <p class="sub">A session is reviews <i>and</i> learning, in one run sized to your length:</p>
+  <div class="sflow">
+    <div class="st">1 · Due reviews<small>up to ~half the time · D1–D2</small></div><span class="ar">→</span>
+    <div class="st">2 · Lesson steps<small>where you left off · E1–E7</small></div><span class="ar">or</span>
+    <div class="st">2 · Open checkpoint<small>G1–G2</small></div><span class="ar">→</span>
+    <div class="st">3 · Session complete<small>E8</small></div>
+  </div>
+  <p class="sub">Every player screen uses one frame: top bar (× · title · time left · ⋯), a progress row, the question near the top, actions at the bottom.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>D1 · Review: recall, self-rated <span>F8</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Reviews<small>then Lesson 4</small></span><span class="time">13 min left</span><span class="ic">⋯</span></div>
+        <div class="ticks"><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="main player">
+          <div class="eyebrow">Review 4 of 9 · Bayesian reasoning <i class="n">1</i></div>
+          <div class="h">What does a prior represent before you see any evidence?</div>
+          <div class="box"><div class="k">Answer</div><div class="b">Your belief in a hypothesis before the new evidence. <span class="cite">1</span></div></div>
+        </div>
+        <div class="pfoot"><div class="prompt">How well did you remember? <i class="n">2</i></div>
+          <div class="conf"><span class="btn ghost">Forgot</span><span class="btn ghost">Partly</span><span class="btn ghost">Remembered</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>One tick per review, mirroring the lesson steps row. Reviews mix courses, so each names its course.</span></li>
+        <li><i class="n">2</i><span>Shown after “Show answer”. Three equal buttons, with a prompt that says what you're rating.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>D2 · Review: fill in the blank, before answering <span>F5</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Reviews<small>then Lesson 4</small></span><span class="time">12 min left</span><span class="ic">⋯</span></div>
+        <div class="ticks"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i></div>
+        <div class="main player">
+          <div class="eyebrow">Review 5 of 9 · mRNA vaccines</div>
+          <div class="h">Vaccine mRNA is read by ______ in the cytoplasm.</div>
+          <div class="input">Type the missing word</div>
+        </div>
+        <div class="pfoot"><div class="prompt">How sure are you? <i class="n">1</i></div>
+          <div class="conf"><span class="btn ghost off">Sure</span><span class="btn ghost off">Not sure</span><span class="btn ghost off">Guess</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Confidence is the submit button. Equal weight, disabled until you answer.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="lesson">
+  <h2>E. Lesson steps</h2>
+  <p class="sub">The progress row shows the five steps. Answers is dashed because it's optional. You can stop after any step.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>E1 · Warm up <span>F4</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">8 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="now"><i></i><span>Warm up</span></div><div><i></i><span>Guess first</span></div><div><i></i><span>Read</span></div><div><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Warm up 1 of 3 · from Lesson 2 <i class="n">1</i></div>
+          <div class="h">Where in the cell is mRNA translated into protein?</div>
+          <div class="box"><div class="k">Answer</div><div class="b">In the cytoplasm, by ribosomes. <span class="cite">2</span></div></div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Next</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>A quick recall prompt from your last completed lesson in this course; none before your first. Think, then Show answer (revealed here), then Next. No rating: warm-ups don't change your reviews. ⋯ → Mark as skipped. <span class="ref">F4</span></span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E2 · Guess first <span>F4</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">7 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="now"><i></i><span>Guess first</span></div><div><i></i><span>Read</span></div><div><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Guess 1 of 2 · It's fine to be wrong <i class="n">1</i></div>
+          <div class="h">Why is the vaccine's spike locked in its “pre-fusion” shape?</div>
+          <div class="opt">To make it less toxic</div>
+          <div class="opt sel">So it lasts longer</div>
+          <div class="opt">So antibodies learn the shape the real virus shows</div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Lock in guess</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>No confidence choice and no feedback. The brief reveals the answer.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E3 · Read <span>F4 The brief</span></figcaption>
+      <div class="win fit">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">6 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="now"><i></i><span>Read</span></div><div><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main read">
+          <div class="eyebrow">~7 min read</div>
+          <div class="h">How the spike gets locked in place</div>
+          <div class="b"><b>Why this matters:</b> it's how the vaccine shows your immune system what to look for (Q2).</div>
+          <div class="prose">
+            <p>Every coronavirus is studded with spike proteins. A spike's job is to grab a human cell and fuse the virus's outer membrane with the cell's, which lets the virus inside. To do that, the spike changes shape. It starts compact and folded, in what's called the pre-fusion form, then springs open into a long, thin post-fusion form as it fuses. <span class="cite">2</span></p>
+            <p>Think of it as a spring-loaded trap: cocked and ready before it fires, stretched out and spent afterwards. The two shapes look very different from the outside, and that difference matters for your immune system.</p>
+          </div>
+          <div class="diagram">diagram · spike before and after fusion <i class="n">1</i></div>
+          <div class="prose">
+            <p>Antibodies learn the exact shape they're shown. If a vaccine taught them the post-fusion shape, they'd be trained on a form the virus only takes once it's already getting into a cell. The shape you want them to recognise is the pre-fusion one, the shape the virus has while it's still looking for a way in. <span class="cite">2</span><span class="cite">4</span></p>
+            <p>The problem is that a spike made on its own tends to spring open by itself. In 2017, researchers found a fix: swap two of the spike's building blocks, at the hinge where it folds, for an amino acid called proline. Proline is unusually rigid, so the hinge can't bend and the spike stays locked in its pre-fusion shape. Both of the first mRNA vaccines use this “2P” spike. <span class="cite">4</span></p>
+          </div>
+          <div class="box ok">
+            <div class="k">Your guess</div>
+            <div class="opt sm wrong">So it lasts longer</div>
+            <div class="opt sm right">So antibodies learn the shape the real virus shows</div>
+            <div class="b">Locking the shape doesn't change how long the spike lasts or how safe it is. It changes what your antibodies learn to recognise.</div>
+          </div>
+          <div class="prose">
+            <p>Once your cells read the vaccine's instructions, they build these locked spikes and display them on their surface. Immune cells passing by can now see the spike, learn its shape, and start making antibodies and longer-lived memory cells against it. <span class="cite">1</span></p>
+          </div>
+          <div class="box ok">
+            <div class="k">You might think</div>
+            <div class="b">the vaccine contains part of the virus. It only carries instructions for one protein, and your own cells make that protein for a short time. <span class="cite">1</span></div>
+          </div>
+          <div class="prose">
+            <p>The real virus has a few tricks of its own. It sheds spent, post-fusion spikes that act as decoys: antibodies that stick to them are wasted. It also coats parts of the spike in sugar molecules called glycans, which hide those parts from antibodies. <span class="cite">3</span></p>
+            <p>Protection seems to last years <span class="label">uncertain</span>. Cells copy DNA before dividing <span class="label">general knowledge</span>. How fast approval should have been is debated <span class="label">contested</span>. <i class="n">2</i></p>
+          </div>
+          <div class="beyond">
+            <div class="t">Beyond this lesson <i class="n">3</i></div>
+            <div class="gap"><span class="gi">≈</span><div>The spring analogy is loose: real proteins don't store energy that way.
+              <div><span class="lk">Protein folding explainer · adds: how shape stores energy · ~15 min · intermediate</span> <span class="label strong">recommended</span></div></div></div>
+            <div class="gap"><span class="gi">○</span><div>Not covered: self-amplifying RNA <span class="s">· not needed for your questions</span>
+              <div><span class="lk">Nature review · adds: next-generation RNA vaccines · ~40 min · advanced</span></div></div></div>
+          </div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Done reading</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>A full brief: about 5–10 minutes of real prose, in one readable column. Briefs can include simple diagrams, math and code. <span class="ref">F4 · §3</span></span></li>
+        <li><i class="n">2</i><span>Content labels are bracketed text, distinct from status tags. Citation numbers match the Sources tab. <span class="ref">§7 · §8</span></span></li>
+        <li><i class="n">3</i><span>≈ Simplified, ○ Not covered. Each Go deeper link sits with its gap. <span class="ref">F4</span></span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E4 · Recall: write <span>F4 · resumed next session</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">9 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="done"><i></i><span>Read</span></div><div class="now"><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Picking up where you stopped <i class="n">1</i></div>
+          <div class="h">What do you remember?</div>
+          <div class="input area lg filled">- pre-fusion shape<br>- 2 prolines lock it<br>- antibodies learn the real virus's shape</div>
+          <div class="s">Keywords are fine.</div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Check</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Resuming in a new session after its reviews. A gap after Read helps recall. The brief stays hidden.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E5 · Recall: tick <span>F4</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">8 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="done"><i></i><span>Read</span></div><div class="now"><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="app">
+          <div class="main">
+            <div class="h">Tick what you recalled</div>
+            <div class="list">
+              <div class="item"><span class="tick on">✓</span><span class="grow">The spike is held in its pre-fusion shape</span></div>
+              <div class="item"><span class="tick on">✓</span><span class="grow">Two proline swaps stabilize that shape</span></div>
+              <div class="item"><span class="tick on">✓</span><span class="grow">Antibodies learn the shape the real virus shows</span></div>
+              <div class="item"><span class="tick"></span><span class="grow">Cells display the spike on their surface</span></div>
+              <div class="item"><span class="tick"></span><span class="grow">Post-fusion spikes act as decoys</span></div>
+              <div class="item"><span class="tick"></span><span class="grow">Glycans shield parts of the spike</span></div>
+            </div>
+          </div>
+          <div class="rail">
+            <div class="k">You wrote <i class="n">1</i></div>
+            <div class="box soft"><div class="b">- pre-fusion shape<br>- 2 prolines lock it<br>- antibodies learn the real virus's shape</div></div>
+          </div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Practice what you missed (3)</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Your notes stay beside the list. On phone they collapse above it.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E6 · Add to your answers <span>F7, optional</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">3 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="done"><i></i><span>Read</span></div><div class="done"><i></i><span>Recall</span></div><div class="optl now"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Optional</div>
+          <div class="h">Add to your answers</div>
+          <div class="qhead"><span class="num">Q2</span><span class="t">How does an mRNA vaccine train the immune system?</span></div>
+          <div class="board">
+            <div class="sticky">the body practises on a harmless copy<small>Lesson 2</small></div>
+            <div class="sticky writing"><span class="cur"></span>what did this lesson add?<small>Lesson 4</small></div>
+          </div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn ghost">Skip this step <i class="n">1</i></span><span class="btn">Stick it</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Your earlier stickies for Q2, then a blank one to write on. “Stick it” pins it to the Answers tab. One board per key question the lesson advances. Never graded.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E7 · Lesson complete <span>F4 curiosity hook</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">3 min left</span><span class="ic">⋯</span></div>
+        <div class="main center celebrate">
+          <div class="confetti"><i style="left:28%;top:11%;background:#7F77DD;transform:rotate(-10deg)"></i><i style="left:16%;top:31%;background:#5DCAA5;transform:rotate(57deg)"></i><i style="left:12%;top:19%;background:#F0997B;transform:rotate(8deg)"></i><i style="left:38%;top:55%;background:#EF9F27;transform:rotate(45deg)"></i><i style="left:7%;top:59%;background:#ED93B1;transform:rotate(43deg)"></i><i style="left:11%;top:24%;background:#378ADD;transform:rotate(20deg)"></i><i style="left:81%;top:67%;background:#7F77DD;transform:rotate(48deg)"></i><i style="left:72%;top:48%;background:#5DCAA5;transform:rotate(4deg)"></i><i style="left:76%;top:10%;background:#F0997B;transform:rotate(59deg)"></i><i style="left:77%;top:66%;background:#EF9F27;transform:rotate(47deg)"></i><i style="left:94%;top:60%;background:#ED93B1;transform:rotate(5deg)"></i><i style="left:81%;top:32%;background:#378ADD;transform:rotate(-40deg)"></i><i style="left:28%;top:21%;background:#7F77DD;transform:rotate(42deg)"></i><i style="left:71%;top:38%;background:#5DCAA5;transform:rotate(22deg)"></i><i style="left:16%;top:8%;background:#F0997B;transform:rotate(56deg)"></i><i style="left:25%;top:46%;background:#EF9F27;transform:rotate(-25deg)"></i><i style="left:81%;top:46%;background:#ED93B1;transform:rotate(-35deg)"></i><i style="left:28%;top:51%;background:#378ADD;transform:rotate(-25deg)"></i><i style="left:72%;top:45%;background:#7F77DD;transform:rotate(-30deg)"></i><i style="left:94%;top:34%;background:#5DCAA5;transform:rotate(-55deg)"></i><i style="left:72%;top:53%;background:#F0997B;transform:rotate(-19deg)"></i><i style="left:10%;top:23%;background:#EF9F27;transform:rotate(-41deg)"></i><i style="left:24%;top:23%;background:#ED93B1;transform:rotate(-36deg)"></i><i style="left:78%;top:29%;background:#378ADD;transform:rotate(-40deg)"></i><i style="left:36%;top:5%;background:#7F77DD;transform:rotate(-55deg)"></i><i style="left:79%;top:70%;background:#5DCAA5;transform:rotate(13deg)"></i></div>
+          <div class="illo">illustration</div>
+          <div class="xl">Lesson 4 complete</div>
+          <div class="b" style="color:var(--mid)">Next, Lesson 5: if antibodies fade in months, why are people still protected? <i class="n">1</i></div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Continue</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Same layout as the session summary. The one line carries the curiosity hook (here for Q2); none after the course's last lesson. When a module's lessons are all completed, it reads “Checkpoint 2 is open” instead. The confetti, the only colour in these wireframes, bursts briefly on arrival.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>E8 · Session complete <span>F8</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Session complete<small>15 min</small></span><span class="ic">⋯</span></div>
+        <div class="main center celebrate">
+          <div class="confetti"><i style="left:16%;top:69%;background:#7F77DD;transform:rotate(-6deg)"></i><i style="left:28%;top:8%;background:#5DCAA5;transform:rotate(-39deg)"></i><i style="left:19%;top:40%;background:#F0997B;transform:rotate(14deg)"></i><i style="left:29%;top:70%;background:#EF9F27;transform:rotate(-45deg)"></i><i style="left:78%;top:47%;background:#ED93B1;transform:rotate(-35deg)"></i><i style="left:76%;top:36%;background:#378ADD;transform:rotate(-32deg)"></i><i style="left:43%;top:20%;background:#7F77DD;transform:rotate(53deg)"></i><i style="left:15%;top:6%;background:#5DCAA5;transform:rotate(-28deg)"></i><i style="left:11%;top:32%;background:#F0997B;transform:rotate(-27deg)"></i><i style="left:20%;top:7%;background:#EF9F27;transform:rotate(58deg)"></i><i style="left:73%;top:68%;background:#ED93B1;transform:rotate(23deg)"></i><i style="left:21%;top:37%;background:#378ADD;transform:rotate(-49deg)"></i><i style="left:44%;top:65%;background:#7F77DD;transform:rotate(13deg)"></i><i style="left:94%;top:24%;background:#5DCAA5;transform:rotate(0deg)"></i><i style="left:87%;top:39%;background:#F0997B;transform:rotate(23deg)"></i><i style="left:75%;top:57%;background:#EF9F27;transform:rotate(-17deg)"></i><i style="left:28%;top:61%;background:#ED93B1;transform:rotate(-25deg)"></i><i style="left:29%;top:30%;background:#378ADD;transform:rotate(19deg)"></i><i style="left:19%;top:68%;background:#7F77DD;transform:rotate(25deg)"></i><i style="left:93%;top:42%;background:#5DCAA5;transform:rotate(35deg)"></i><i style="left:14%;top:18%;background:#F0997B;transform:rotate(-40deg)"></i><i style="left:9%;top:62%;background:#EF9F27;transform:rotate(-46deg)"></i><i style="left:90%;top:62%;background:#ED93B1;transform:rotate(10deg)"></i><i style="left:5%;top:48%;background:#378ADD;transform:rotate(-18deg)"></i><i style="left:77%;top:41%;background:#7F77DD;transform:rotate(40deg)"></i><i style="left:16%;top:9%;background:#5DCAA5;transform:rotate(29deg)"></i></div>
+          <div class="illo">illustration</div>
+          <div class="xl">Session complete <i class="n">1</i></div>
+          <div class="b" style="color:var(--mid)">9 reviews and Lesson 4. Next time, Lesson 5.</div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn ghost">Keep going</span><span class="btn">Back to Today</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>A moment to celebrate: the confetti, the only colour in these wireframes, bursts briefly as the screen appears. One line says what you did and what's next. Keep going starts another session. Leaving early with × saves progress, including typed text.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="practice">
+  <h2>F. Practice</h2>
+  <p class="sub">Four exercise types are marked automatically. Short answers you mark yourself. All five use the same frame and the same feedback box.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>F1 · Wrong answer <span>F5</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">7 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="done"><i></i><span>Read</span></div><div class="now"><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Exercise 1 of 3 · scenario</div>
+          <div class="h">A virus's spike loses its sugar coating (glycans). What's most likely?</div>
+          <div class="opt wrong">Nothing changes for antibodies</div>
+          <div class="opt right">Antibodies can reach parts that were hidden</div>
+          <div class="box ok"><div class="spread"><span class="t">Not quite · you said Sure</span><span class="s">You'll see this again later this session <i class="n">1</i></span></div><div class="b">Glycans act like a shield over parts of the spike, so without them… <span class="link">In the brief</span></div></div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Next</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Only after a wrong <i>Sure</i>. The explanation opens after any miss, Guess or Not sure; one click away after a correct Sure.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>F2 · Short answer: mark yourself <span>F5</span></figcaption>
+      <div class="win fit">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">6 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="done"><i></i><span>Read</span></div><div class="now"><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Exercise 2 of 3 · short answer</div>
+          <div class="h">Why do your cells display the spike on their surface?</div>
+          <div class="box soft"><div class="k">You wrote</div><div class="b">so the immune system can see it and learn it</div></div>
+          <div class="box ok"><div class="k">Sample answer</div><div class="b">So immune cells can find the spike, learn its shape, and make antibodies and memory cells against it.</div></div>
+          <div class="k">Tick what you covered <i class="n">1</i></div>
+          <div class="list">
+            <div class="item"><span class="tick on">✓</span><span class="grow">Immune cells can find it</span></div>
+            <div class="item"><span class="tick on">✓</span><span class="grow">They learn its shape</span></div>
+            <div class="item"><span class="tick"></span><span class="grow">This leads to antibodies and memory cells</span></div>
+          </div>
+          <div class="b"><b>Why:</b> immune cells only react to what they can touch, so the spike has to be on the outside… <span class="link">In the brief</span></div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="grow"></span><span class="t">2 of 3 · Partly recalled</span><span class="btn">Next</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Sample answer and explanation open automatically. All ticked = fully recalled, some = partly, none = not recalled.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>F3 · Right, but guessed <span>F5</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Lesson 4 · Spike protein design<small>How mRNA vaccines work</small></span><span class="time">5 min left</span><span class="ic">⋯</span></div>
+        <div class="lsteps"><div class="done"><i></i><span>Warm up</span></div><div class="done"><i></i><span>Guess first</span></div><div class="done"><i></i><span>Read</span></div><div class="now"><i></i><span>Recall</span></div><div class="optl"><i></i><span>Answers</span></div></div>
+        <div class="main player">
+          <div class="eyebrow">Exercise 3 of 3 · multiple choice</div>
+          <div class="h">What do loose post-fusion spikes on the real virus do?</div>
+          <div class="opt right">Act as decoys that distract antibodies</div>
+          <div class="opt">Help the virus enter cells</div>
+          <div class="box ok"><div class="spread"><span class="t">Right, but you guessed</span><span class="s">Counts as not learned yet <i class="n">1</i></span></div><div class="b">Spent spikes look different, so antibodies made against them miss the working ones… <span class="link">In the brief</span></div></div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Next</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>A correct Guess or Not sure opens the explanation. A correct Sure shows just “Right” with “Why?” one click away.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="checkpoint">
+  <h2>G. Checkpoint &amp; completion</h2>
+  <p class="sub">Opens when a module's lessons are all completed. Practice first, then mastery. No final exam.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>G1 · Checkpoint exercise <span>F6 · later, once Lesson 3 is completed</span></figcaption>
+      <div class="win fit">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Checkpoint 1<small>How mRNA vaccines work</small></span><span class="tag dark">open</span><span class="time">9 min left</span><span class="ic">⋯</span></div>
+        <div class="ticks"><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="main player">
+          <div class="eyebrow">4 of 10 · Lessons 1–3 <i class="n">1</i></div>
+          <div class="h">Spot the error</div>
+          <div class="k">Part 1 · Which sentence is wrong?</div>
+          <div class="opt">mRNA enters the cell inside a lipid nanoparticle.</div>
+          <div class="opt sel">Ribosomes in the nucleus read the mRNA.</div>
+          <div class="opt">The cell displays spike proteins on its surface.</div>
+          <div class="k">Part 2 · Pick the fix <i class="n">2</i></div>
+          <div class="opt sel">…in the cytoplasm…</div>
+          <div class="opt">…in the mitochondria…</div>
+        </div>
+        <div class="pfoot"><div class="prompt">How sure are you?</div>
+          <div class="conf"><span class="btn ghost">Sure</span><span class="btn ghost">Not sure</span><span class="btn ghost">Guess</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>No intro screen. You can stop anytime; answers are saved and it continues next session.</span></li>
+        <li><i class="n">2</i><span>Same option control for both parts. Correct only if both are right.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>G2 · Mastery summary <span>F6</span></figcaption>
+      <div class="win">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">Checkpoint 1<small>How mRNA vaccines work</small></span><span class="tag solid">done</span><span class="time">2 min left</span><span class="ic">⋯</span></div>
+        <div class="main player">
+          <div class="spread"><span class="h">Module 1 mastery</span><span class="s"><b>7 of 10</b> right</span></div>
+          <div class="list">
+            <div class="mastery"><span>mRNA is degraded within days</span><span class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="s">Strong</span></div>
+            <div class="mastery"><span>Translation is in the cytoplasm</span><span class="lvl"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="s">Strong</span></div>
+            <div class="mastery"><span>No enzyme turns it into DNA</span><span class="lvl"><i class="on"></i><i></i><i></i><i></i></span><span class="s">Shaky</span></div>
+            <div class="mastery"><span>Nanoparticles protect mRNA <i class="n">1</i></span><span class="lvl none"><i></i><i></i><i></i><i></i></span><span class="s">Not yet reviewed</span></div>
+          </div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Continue</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>A word beside every row of dots. Not yet reviewed is its own state, not zero.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>G3 · Course complete <span>F7</span></figcaption>
+      <div class="win fit">
+        <div class="ptop"><span class="ic">×</span><span class="ttl">How mRNA vaccines work</span><span class="tag solid">complete</span><span class="ic">⋯</span></div>
+        <div class="main center">
+          <div class="illo">illustration</div>
+          <div class="xl">Course complete <i class="n">1</i></div>
+          <div class="s">12 lessons · 3 checkpoints · reviews continue for all 41 concepts</div>
+          <div class="list">
+            <div class="item"><span class="num">Q1</span><span class="grow b">Can mRNA vaccines alter human DNA?</span><span class="s">4 notes</span><span class="chev"></span></div>
+            <div class="item"><span class="num">Q2</span><span class="grow b">How does an mRNA vaccine train the immune system?</span><span class="s">6 notes</span><span class="chev"></span></div>
+            <div class="item"><span class="num">Q3</span><span class="grow b">Why were mRNA vaccines developed so quickly?</span><span class="s">3 notes</span><span class="chev"></span></div>
+          </div>
+        </div>
+        <div class="pfoot"><div class="acts"><span class="btn">Continue</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Every lesson completed and every checkpoint done. Ends on your questions, not a score. Continue goes to the session summary.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="library">
+  <h2>H. Library</h2>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>H1 · Library <span>F9</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / library</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav on">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+          </div>
+          <div class="main">
+            <div class="h">Library</div>
+            <div class="k">In progress <i class="n">1</i></div>
+            <div class="cards">
+              <div class="card"><div class="cover">mRNA</div><div class="in"><div class="t">How mRNA vaccines work</div><div class="s">2 of 12 completed</div><div class="bar"><i style="width:17%"></i></div></div></div>
+              <div class="card"><div class="cover">Bayes</div><div class="in"><div class="t">Bayesian reasoning basics</div><div class="s">3 of 6 completed</div><div class="bar"><i style="width:50%"></i></div></div></div>
+            </div>
+            <div class="k">Ready</div>
+            <div class="cards">
+              <div class="card"><div class="cover">Stoa</div><div class="in"><div class="t">Stoic philosophy</div><div class="s">10 lessons · ~4 hrs</div></div></div>
+            </div>
+            <div class="k">Complete</div>
+            <div class="cards">
+              <div class="card"><div class="cover">Bloom</div><div class="in"><div class="t">What is a Bloom filter?</div><div class="s">2 of 2 completed ✓</div><div class="bar"><i style="width:100%"></i></div></div></div>
+            </div>
+            <div class="k">Requested</div>
+            <div class="cards">
+              <div class="card req"><div class="in"><div class="s">Climate tipping points</div><span class="tag">requested</span></div></div>
+              <div class="card req"><div class="in"><div class="s">Fix my laptop's Wi-Fi</div><div class="s">A support request, not a topic to learn</div><span class="tag">not built</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Course cards grouped by status. Requests are dashed tiles with nothing to open yet.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="mobile">
+  <h2>I. Phone</h2>
+  <p class="sub">Single column, same components. Two tabs, and New request moves to a + in the header. Answer and next buttons sit at the bottom; tap targets are at least 44px.</p>
+  <div class="row">
+
+    <figure class="m">
+      <figcaption>I1 · Today</figcaption>
+      <div class="phone fit">
+        <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+        <div class="hdr"><span class="grow">Today</span><span class="ic">+</span></div>
+        <div class="pbody">
+          <div class="box lead">
+            <div><div class="t">Your session <i class="n">1</i></div><div class="s">9 reviews, then Lesson 4 from Recall</div></div>
+            <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div>
+          </div>
+          <div class="btns fill"><span class="btn ghost sm">Reviews only · ~3 min</span><span class="btn ghost sm">Full lesson</span></div>
+          <div class="k">In progress</div>
+          <div class="list">
+            <div class="item"><div class="grow"><div class="t">How mRNA vaccines work</div><div class="s">2 of 12 completed</div><div class="bar"><i style="width:17%"></i></div></div><span class="chev"></span></div>
+            <div class="item"><div class="grow"><div class="t">Bayesian reasoning basics</div><div class="s">3 of 6 completed · Checkpoint 1 open</div><div class="bar"><i style="width:50%"></i></div></div><span class="chev"></span></div>
+          </div>
+          <div class="k">Ready</div>
+          <div class="list"><div class="item"><div class="grow"><div class="t">Stoic philosophy</div><div class="s">10 lessons · ~4 hrs</div></div><span class="chev"></span></div></div>
+          <div class="k">Requested</div>
+          <div class="list"><div class="item"><div class="grow s">Climate tipping points</div><span class="tag">requested</span></div></div>
+        </div>
+        <div class="tabbar"><div class="on">Today</div><div>Library</div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>The length menu opens as a bottom sheet.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="m">
+      <figcaption>I2 · Read</figcaption>
+      <div class="phone fit">
+        <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+        <div class="hdr"><span class="ic">×</span><span class="grow">Lesson 4 · Spike protein<small>6 min left</small></span><span class="ic">⋯</span></div>
+        <div class="msteps"><div class="bars"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i class="optl"></i></div><span>Step 3 of 5 · Read <i class="n">1</i></span></div>
+        <div class="pbody">
+          <div class="b"><b>Why this matters:</b> Q2</div>
+          <div class="lines"><div class="ln"></div><div class="ln w90"></div><div class="ln w70"></div></div>
+          <div class="diagram">diagram</div>
+          <div class="box ok"><div class="k">Your guess</div><div class="ln w80"></div><div class="ln w60"></div></div>
+          <div class="beyond">
+            <div class="t">Beyond this lesson</div>
+            <div class="gap"><span class="gi">≈</span><div>The spring analogy is loose…<div><span class="lk">Explainer · ~15 min</span> <span class="label strong">recommended</span></div></div></div>
+            <div class="gap"><span class="gi">○</span><div>Not covered: self-amplifying RNA<div><span class="lk">Nature review · ~40 min</span></div></div></div>
+          </div>
+        </div>
+        <div class="foot"><div class="btn">Done reading</div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Steps get a text label on phone, since bars alone only differ by shade.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="m">
+      <figcaption>I3 · Exercise</figcaption>
+      <div class="phone">
+        <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+        <div class="hdr"><span class="ic">×</span><span class="grow">Lesson 4 · Spike protein<small>5 min left</small></span><span class="ic">⋯</span></div>
+        <div class="msteps"><div class="bars"><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i class="optl"></i></div><span>Step 4 of 5 · Recall</span></div>
+        <div class="pbody">
+          <div class="eyebrow">Exercise 3 of 3 · multiple choice</div>
+          <div class="h">What do loose post-fusion spikes on the real virus do?</div>
+          <div class="opt sel">Act as decoys that distract antibodies</div>
+          <div class="opt">Help the virus enter cells</div>
+          <div class="opt">Carry extra mRNA</div>
+        </div>
+        <div class="foot"><div class="prompt">How sure are you? <i class="n">1</i></div><div class="conf"><span class="btn ghost">Sure</span><span class="btn ghost">Not sure</span><span class="btn ghost">Guess</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Answer buttons within thumb reach, 8px apart.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="a11y">
+  <h2>J. Accessibility notes for hi-fi</h2>
+  <p class="sub">Not drawn, but required.</p>
+  <ul class="a11y">
+    <li><b>Focus order in the player:</b> options are a radio group (arrow keys), then Tab to the confidence buttons (shortcut keys 1/2/3). After submitting, focus moves to the result, then “In the brief”, then Next. Each new question focuses its heading.</li>
+    <li><b>Announcements (polite):</b> the result after submitting; tick counts as they change (“3 of 6 recalled”, “Partly recalled”), even though they aren't shown on screen; step changes; toasts.</li>
+    <li><b>Time is a soft budget:</b> nothing is cut off mid-step, there's no per-minute announcement, and ⋯ has a <i>Hide timer</i> option.</li>
+    <li><b>Names:</b> × is “Exit session, progress saved”. Citation chips are “Source 2”. ≈ and ○ read as “Simplified” and “Not covered”. The length menu is a radio group.</li>
+    <li><b>State never by shade alone:</b> lessons, steps, mastery and answers each carry a text label or symbol. Illustrations are decorative.</li>
+  </ul>
+</section>
+
+</body>
+</html>
