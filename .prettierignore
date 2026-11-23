@@ -5,3 +5,8 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 .pnpm-store/
+.claude/
+next-env.d.ts
+playwright-report/
+test-results/
+blob-report/
