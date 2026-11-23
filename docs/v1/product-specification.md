@@ -51,8 +51,8 @@ Plato calls no AI model while you use it. Every course is created offline, ahead
 | **Course request** | Your free-text description of what you want to learn. Status: *Requested*, then *Published* or *Not built*. |
 | **Key question** | One of the 3–5 questions Plato derives from your request. The course is written to answer them. |
 | **Course** | The modules and lessons built for one course request. Status: *Ready*, *In progress*, *Complete*. |
-| **Overview** | The course's key questions, what is out of scope and why, and its as-of date. |
-| **Syllabus** | The course's modules and lessons in order, with each lesson's status. |
+| **Course page** | A course's home: a header with its title, length, as-of date and main button, and three tabs: *Syllabus*, *Answers* and *Sources* (F9). |
+| **Syllabus** | The course page tab a course opens on: what the course leaves out and why, in one line, then its modules and lessons in order, with each lesson's status. |
 | **Module** | A group of related lessons, ending with a checkpoint. |
 | **Lesson** | One unit of learning, taught in the five steps of F4. Status: *Not started*, *In progress*, *Completed*, *Skipped*. |
 | **Brief** | The reading in a lesson. |
@@ -60,12 +60,12 @@ Plato calls no AI model while you use it. Every course is created offline, ahead
 | **Exercise** | A practice question with a prepared answer and explanation, in one of the types in F5. Exercises appear in Recall, reviews and checkpoints. |
 | **Sample answer** | The prepared answer to a short-answer exercise, with a checklist of 2–4 points it makes. |
 | **Review** | A spaced-repetition prompt on one concept, drawn from several prepared versions and scheduled by how well you recalled the concept before. |
-| **Mastery** | How well you currently remember a concept, shown once you have reviewed it on a day after its lesson. |
+| **Mastery** | How well you currently remember a concept: *Strong*, *Good* or *Shaky*, shown once you have reviewed it on a day after its lesson, and *Not yet reviewed* before that. |
 | **Checkpoint** | A cumulative practice set at the end of each module. Status: *Locked*, *Open*, *Done*. |
 | **Answer notes** | Your notes on one key question, added lesson by lesson. They are for your own use and are not marked. |
-| **Answers page** | The page that collects your answer notes for a course (F7). |
+| **Answers tab** | The course page tab with the course's key questions and your answer notes (F7). |
 | **Today** | The home page, where sessions start (F8). |
-| **Session** | One sitting of due reviews plus lesson steps or a checkpoint, sized to the length you set on Today. |
+| **Session** | One sitting of due reviews plus lesson steps or a checkpoint, sized to the length you set on Today, ending with a session summary. |
 | **Mini-course** | A course of one or two lessons in a single module, for narrow topics. |
 
 ---
@@ -102,7 +102,8 @@ Course creation happens offline, outside the app, and is not instant. For each r
 
 ### F3. Starting a course
 
-- The course opens with its overview and syllabus.
+- The course opens on its course page, on the *Syllabus* tab. The header shows the course's title, number of lessons, length and as-of date. Its key questions are on the *Answers* tab.
+- The header's main button follows the course's state: *Start Lesson 1*, *Continue Lesson N* or *Open Checkpoint N*. It starts a session with this course: due reviews first, then that lesson or checkpoint. The course becomes the one Today continues.
 - A course becomes *In progress* when you start or skip any of its lessons.
 
 ### F4. Lessons
@@ -114,12 +115,12 @@ A full lesson takes about 12–20 minutes. You can stop after any step and pick 
 | **1. Warm up** (~2 min) | 2–3 quick recall prompts on the concepts of the lesson you last *Completed* in this course. If you have not completed a lesson in this course yet, there is no warm-up. Warm-ups do not change your review schedule. |
 | **2. Guess first** (~1 min) | 2–3 multiple-choice questions about this lesson, answered before reading. The screen notes: "It's fine to be wrong." Guesses are not marked here; the brief reveals each answer. |
 | **3. Read** (~5–10 min) | The brief (below). |
-| **4. Recall** (~3–5 min) | The brief is hidden. Write what you remember, in keywords or fragments. Then the lesson's key points are revealed and you tick the ones you recalled ("3 of 6"). Finally, 2–3 exercises cover the key points you missed, or any of them if you missed none. |
-| **5. Add to your answers** (~1–2 min) | Optional. For each key question this lesson advances, jot a note in your answer notes. |
+| **4. Recall** (~3–5 min) | The brief is hidden. Write what you remember, in keywords or fragments. Then the lesson's key points are revealed next to what you wrote, and you tick the ones you recalled. Finally, 2–3 exercises cover the key points you missed, or any of them if you missed none. |
+| **5. Add to your answers** (~1–2 min) | Optional. For each key question this lesson advances, you see your earlier notes for it and add a new one. |
 
-Each lesson except the last ends with a **curiosity hook**: one line, tied to a key question, that the next lesson answers.
+A completed lesson ends on a short celebration: a brief burst of confetti, "Lesson *N* complete", and one line. On every lesson except the last, that line is the **curiosity hook**: a question, tied to a key question, that the next lesson answers. When the lesson completes its module, the line says the module's checkpoint is open instead.
 
-**Skipping**: you can mark any lesson you have not completed as *Skipped* and come back to it later, picking up where you stopped. Its concepts enter your reviews only once you complete it.
+**Skipping**: you can mark any lesson you have not completed as *Skipped* and come back to it later, picking up where you stopped. Its concepts enter your reviews only once you complete it. Skipping shows an undo option.
 
 #### The brief
 
@@ -127,10 +128,10 @@ Each lesson except the last ends with a **curiosity hook**: one line, tied to a 
 - **Body**: the essential ideas, with citations, worked examples and analogies.
 - **Misconceptions addressed head-on**, e.g. "You might think X; actually Y, because…".
 - **Your guesses, revealed**: for each Guess first question, the brief shows your pick next to the correct answer, with a short explanation of why the other options are wrong.
-- **Honest edges** (a collapsed footer):
+- **Beyond this lesson**, a short section that ends the brief, listing its honest edges:
   - *Simplified*: where the brief glosses over nuance, and where each analogy breaks down.
   - *Not covered*: related subtopics left out on purpose, and why.
-- **Go deeper** (optional): 2–3 external links, each tagged with what it adds, its effort (e.g. ~15 min) and its level. When a key question depends on a nuance the brief left out, one link is marked **recommended**.
+- **Go deeper** (optional): 2–3 external links, each shown under the simplification or omission it fills and tagged with what it adds, its effort (e.g. ~15 min) and its level. When a key question depends on a nuance the brief left out, one link is marked **recommended**.
 
 ### F5. Practice
 
@@ -165,7 +166,7 @@ A checkpoint is *Locked* until every lesson in its module is *Completed*, then *
 
 ### F7. Answer notes and completion
 
-Each key question has answer notes, made of the notes you jot at step 5 of each lesson. You can edit them at any time. Nothing marks or scores them, and they do not affect completion. The **Answers page** shows every key question with its answer notes and the lessons that advance it.
+Each key question has answer notes, made of the notes you jot at step 5 of each lesson. Each note is shown as a sticky note in your own words, labelled with the lesson you wrote it after. You can add, edit or delete notes at any time. Nothing marks or scores them, and they do not affect completion. The **Answers tab** shows every key question with the lessons that advance it and its answer notes.
 
 The course is *Complete* once every lesson is *Completed* and every checkpoint is *Done*. Skipped lessons must be completed first.
 
@@ -173,7 +174,7 @@ The course is *Complete* once every lesson is *Completed* and every checkpoint i
 
 #### Today
 
-Today leads with one button, **"Your *N*-min session"**, where *N* is the session length you set on Today: 10, 15, 20 or 30 minutes, 15 by default.
+Today leads with one button, **"Start session"**, with the session length beside it: 10, 15, 20 or 30 minutes, 15 by default. Your choice is remembered. One line above the button says what the session holds, e.g. "9 reviews, then Lesson 4 from Recall".
 
 A session is assembled in this order:
 
@@ -182,13 +183,15 @@ A session is assembled in this order:
    - its *Open* checkpoint, if it has one;
    - otherwise its next lesson: the first in syllabus order that is *Not started* or *In progress*, or, if only *Skipped* lessons remain, the first *Skipped* one.
 
-If no course is *In progress*, the session has only due reviews.
+If no course is *In progress*, the session has only due reviews. If no course is *In progress* and nothing is due, Today offers to start Lesson 1 of a *Ready* course instead.
 
-Other options: **Reviews only** (about 3 minutes) and **Full lesson**.
+A lesson often spans two sessions. When the session's time runs out, the current step finishes first. Every session ends with a short summary of what you did and what comes next, with a brief burst of confetti.
+
+Other options: **Reviews only** (about 3 minutes) and **Full lesson** (no reviews; the next lesson from where you left off, whatever its length).
 
 Below the session button:
 
-- **Continue**: one row per course *In progress*, most recent first.
+- **In progress**: one row per course *In progress*, most recent first.
 - **Ready**: published courses you haven't started.
 - **Requested**: course requests that are *Requested* or *Not built*.
 
@@ -198,12 +201,16 @@ Below the session button:
 - A concept's first review comes 1–2 days after you complete its lesson. After that, each review is scheduled by how well you recalled the concept before.
 - Reviews from all your courses are mixed into each session.
 - **Daily cap**: there is a daily limit on reviews. After a break of two weeks or more, overdue reviews are spread over the following days rather than shown all at once.
-- **Mastery** is shown per concept.
-- **No streaks**: Today shows the number of days you were active this month. Missing a day is never punished.
+- **Mastery** is shown per concept: on the syllabus, under each completed lesson, and in each checkpoint's summary.
+- **No streaks**: Today shows the total number of days you have shown up. It only grows, and missing a day is never punished.
 
 ### F9. Course page and library
 
-**Course page**: the overview, the syllabus and the course's sources.
+**Course page**: a header with the course's title, length, as-of date and main button (F3), and three tabs:
+
+- **Syllabus**, the tab a course opens on: what the course leaves out and why, and any policy note from §8, in one line; then the modules and lessons with their status.
+- **Answers**: the key questions and your answer notes (F7).
+- **Sources**: every source the course cites, grouped by kind, with its date. Their numbers match the citations in the briefs.
 
 **Library**: all your courses with their status, and your course requests that are *Requested* or *Not built*.
 
@@ -228,11 +235,11 @@ Every published course meets these requirements:
 
 | Situation | Behavior |
 |---|---|
-| **Broad topic** | The course covers one slice that fits the time available, and the overview names what is left out. |
+| **Broad topic** | The course covers one slice that fits the time available, and the syllabus names what is left out. |
 | **Narrow topic** | A mini-course. |
-| **Fast-moving topic** | The overview's as-of date is shown prominently, and each source shows its date. Recent sources are preferred. |
+| **Fast-moving topic** | The course's as-of date is shown prominently in the course page header, and each source shows its date. Recent sources are preferred. |
 | **Contested or political topic** | Sources are balanced across positions. The strongest form of each major position is presented and attributed, and disagreement is labeled *contested*. Exercises test understanding of each position, never agreement with one. |
 | **Health, legal, financial or safety topic** | Authoritative sources are preferred, such as health agencies and peer-reviewed reviews. Content is general education only, with no personal medical, legal or financial advice, and points to professionals where relevant. |
 | **Key question with no settled answer** | The course teaches the current state of knowledge and the open problems. |
-| **Little good research available** | The course relies more on general knowledge, labeled as such, and the overview says so. |
-| **Skill topic** | Only the theory is taught, and the overview says so. |
+| **Little good research available** | The course relies more on general knowledge, labeled as such, and the syllabus says so. |
+| **Skill topic** | Only the theory is taught, and the syllabus says so. |
