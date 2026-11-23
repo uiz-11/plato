@@ -43,13 +43,13 @@ Three design rules keep v1 small:
 | # | Decision | Chosen | Main alternative and why not |
 |---|---|---|---|
 | D1 | Progress store | SQLite (`better-sqlite3`, WAL) with Drizzle ORM | Postgres: a network hop, operations and cost for one learner. `node:sqlite`: still experimental in Node 24. |
-| D2 | Hosting | One container (`output: 'standalone'`) on a host with a persistent volume and daily volume snapshots (a small VPS, or one Fly/Railway machine) | Vercel: no persistent filesystem, so SQLite would need Turso/libSQL and a network hop per query. Continuous replication (Litestream): more moving parts than one learner's progress needs. |
+| D2 | Hosting | One container (`output: 'standalone'`) on a host with a persistent volume and daily volume snapshots (a small VPS, or one Fly/Railway machine) | Vercel: no persistent filesystem, so SQLite would need Turso/libSQL and a network hop per query. |
 | D3 | Course content | Files in git: YAML for structure, Markdown with a closed set of directives for briefs | JSON: prose is painful to escape. MDX: runs authored content as code and fails at compile time, not at validation. Content in the DB: loses PR review and CI validation. |
 | D4 | Auth | One long passcode (env var), exchanged for a signed, HttpOnly cookie, or sent as a bearer token by scripts | Accounts: one learner. No auth: the app is on the public internet. |
 | D5 | Scheduling | SM-2-lite with three grades (§7.4) | FSRS: needs four grades, parameter fitting and a library. The spec asks for nothing it adds. |
-| D6 | Rendering | `unified` (remark/rehype) on the server, with KaTeX for math, plain `<pre>` code blocks and pre-made SVG diagrams | Client-side Markdown or Mermaid: heavy client JS and unpredictable output. Syntax highlighting: the spec asks for code blocks, not highlighting. |
-| D7 | Caching | `cacheComponents` **off**. Every page renders per request (the auth cookie makes it dynamic). Rendered content is memoized in process in production. | Cache Components: needs `generateStaticParams` with at least one course, `connection()` before every SQLite read, and Suspense around every progress read, all to prerender pages that are personal anyway. |
-| D8 | Mutations | Server Actions (`'use server'`), one transaction each. One Route Handler: the pipeline export. | A REST or tRPC layer: a second API surface with no second client. |
+| D6 | Rendering | `unified` (remark/rehype) on the server, with KaTeX for math, plain `<pre>` code blocks and pre-made SVG diagrams | Client-side Markdown or Mermaid: heavy client JS and unpredictable output. |
+| D7 | Caching | `cacheComponents` **off**. Every page renders per request (the auth cookie makes it dynamic). Rendered content is memoized in process in production. | Cache Components: prerendering gains nothing when every page is personal, and it requires `connection()` before each SQLite read and Suspense around each progress read. |
+| D8 | Mutations | Server Actions (`'use server'`), one transaction each. One production Route Handler: the pipeline export. | A REST or tRPC layer: a second API surface with no second client. |
 | D9 | Player | The server owns the position. The page renders the current **unit** (the review block, a lesson step or part of one, or the checkpoint) with all its **items** (the prompts, questions or exercises it shows one at a time). The client steps through the unit locally and records each event in the background, in order. | A server round trip per screen: slow on a phone over mobile data. A client state store mirroring the server: two sources of truth. |
 | D10 | Request status | Derived from content files (`published.json`, `not-built.json`) | The pipeline writing to the production DB: a second writer and a credential to protect. |
 
@@ -97,6 +97,7 @@ ESLint `no-restricted-imports` enforces the boundaries. `lib/engine` imports not
 |---|---|
 | `drizzle-orm`, `better-sqlite3`; `drizzle-kit` (dev) | DB access and migration generation. `better-sqlite3` is on Next's default `serverExternalPackages` list. |
 | `zod` v4 | Content schema and Server Action input validation |
+| `server-only` | Marks `lib/db` and `lib/dal`. Next handles it internally; Vitest aliases it to an empty module so DAL tests can import those files. |
 | `yaml` | Parsing course files (YAML 1.2 core schema). Every value then passes through zod. |
 | `unified`, `remark-parse`, `remark-gfm`, `remark-math`, `remark-directive`, `remark-rehype`, `rehype-katex`, `katex`, `hast-util-to-jsx-runtime` | Brief and inline Markdown rendering |
 | `canvas-confetti` | The confetti bursts (WF-E7, WF-E8, WF-G3) |
@@ -114,13 +115,13 @@ This Next.js version differs from older ones. Each item below was checked in `no
 | Convention | Where documented | How we use it |
 |---|---|---|
 | Without `cacheComponents`, a Request-time API such as `cookies()` renders the route per request | `02-guides/caching-without-cache-components.md` | `requireLearner()` reads the cookie, so every page is dynamic. No `generateStaticParams`, `'use cache'` or `connection()`. |
-| `proxy.ts` (formerly middleware) runs on Node. Without a `matcher` it runs on every request, static files included. | `01-getting-started/16-proxy.md`, `03-api-reference/03-file-conventions/proxy.md` | Optimistic redirect to `/unlock`. The matcher excludes `/unlock`, `/_next/static`, `/_next/image`, `/favicon.ico` and `/api/*` (Route Handlers check their own bearer token). |
+| `proxy.ts` (formerly middleware) runs on Node. Without a `matcher` it runs on every request, static files included. | `01-getting-started/16-proxy.md`, `03-api-reference/03-file-conventions/proxy.md` | Optimistic redirect to `/unlock`. The matcher excludes `/unlock`, `/_next/static`, `/_next/image`, `/favicon.ico` and `/api/*` (Route Handlers authenticate themselves). |
 | Server Functions are reachable by direct POST | `01-getting-started/07-mutating-data.md`, `02-guides/data-security.md` | Every action calls `requireLearner()` and zod-parses its input. |
 | `refresh()` from `next/cache` works only inside Server Actions and returns the re-rendered route in the same round trip | `03-api-reference/04-functions/refresh.md` | Called by actions that change what the current page shows. |
 | Actions are dispatched one at a time per client (not across tabs) | `02-guides/server-actions.md` | Player events arrive in order. Cross-tab conflicts are handled by the position check (§8.4). Nothing in the player calls an action on a timer, so a click never waits behind background saves. |
 | `params` is a Promise; `PageProps<'/route'>` is a global helper | `03-api-reference/03-file-conventions/page.md` | All dynamic pages `await props.params`. |
 | One root layout; route groups for different chrome | `03-api-reference/03-file-conventions/route-groups.md` (separate root layouts force a full reload) | `(shell)` and `(player)` groups under one root layout. |
-| `instrumentation.ts` `register()` runs once and completes before the server handles requests | `03-api-reference/03-file-conventions/instrumentation.md` | `if (process.env.NEXT_RUNTIME === 'nodejs') await (await import('./lib/db/migrate')).migrate()`. Migrations are skipped when `NEXT_PHASE` is `phase-production-build`. |
+| `instrumentation.ts` `register()` runs once and completes before the server handles requests | `03-api-reference/03-file-conventions/instrumentation.md` | `if (process.env.NEXT_RUNTIME === 'nodejs') await (await import('./lib/db/migrate')).migrate()`. Migrations are skipped when `NEXT_PHASE` is `phase-production-build`, which `next build` sets. |
 | `useSelectedLayoutSegment` is a Client Component hook | `03-api-reference/04-functions/use-selected-layout-segment.md` | Used by the client `CourseTabs` component. |
 
 `next.config.ts` adds:
@@ -222,7 +223,7 @@ How the content maps to the spec:
   - A lesson's reading time is its brief's word count ÷ 220, rounded up ("~7 min read", WF-E3).
   - The course length is the sum of the lesson and checkpoint estimates in §7.7. It is shown in minutes under an hour ("~40 min"), otherwise in hours rounded to the half hour ("~1 hr", "~4.5 hrs").
   - The lesson count ("12 lessons") is counted from the modules.
-- **Schema versions.** v1 has only `schemaVersion: 1`. A published course keeps the version it was published with, and its files are never rewritten. The first breaking schema change will add a loader for v1 and an upcaster. No versioning code is written before then.
+- **Schema versions.** Every course is `schemaVersion: 1`. A published course keeps its version, and its files are never rewritten, so a later breaking change adds an upcaster from v1.
 
 ### 5.3 Brief format
 
@@ -241,7 +242,7 @@ A brief is CommonMark plus GFM tables, `$…$` and `$$…$$` math, fenced code, 
 
 "Why this matters" renders above the body. "Beyond this lesson" renders after it from `beyond`: ≈ *Simplified* and ○ *Not covered* entries, each with its Go deeper links. Each link is tagged with what it adds, its effort and its level, and with *recommended* when set (spec F4).
 
-Fenced code renders as a plain, horizontally scrollable `<pre><code>` with no highlighting. Raw HTML, Markdown images and footnotes are rejected.
+Fenced code renders as a plain, horizontally scrollable `<pre><code>`. A literal dollar sign is written `\$`, because a single `$` starts inline math. Raw HTML, Markdown images and footnotes are rejected.
 
 ### 5.4 Rendering
 
@@ -257,7 +258,7 @@ Fenced code renders as a plain, horizontally scrollable `<pre><code>` with no hi
 
 ### 5.5 Validation
 
-`npm run course:validate <id> [--publish] [--json] [--online]`. Errors fail the run; warnings are printed. `--json` prints machine-readable findings with file and path, so the pipeline can fix them in a loop. The validator imports `normalizeAnswer` and the directive parser from `lib/content`, so it and the app cannot disagree. Count and length limits live in the zod schema; the table lists the checks that need code.
+`npm run course:validate <id> [--publish] [--json] [--online]`. Errors fail the run; warnings are printed. `--json` prints machine-readable findings with file and path, so the pipeline can fix them in a loop. The validator imports `normalizeAnswer` and the directive parser from `lib/content`, so it and the app cannot disagree. Simple count and length limits live in the zod schema; the table lists the remaining checks.
 
 **Structure checks** (the default; the pipeline's stage-4 gate):
 
@@ -288,7 +289,7 @@ Fenced code renders as a plain, horizontally scrollable `<pre><code>` with no hi
   - existing entries in `published.json` and `not-built.json` are unchanged (both files are append-only);
   - no file under a published course's folder is changed or deleted;
   - every course newly added to `published.json` passes `course:validate --publish` and the display check (§11.4).
-- **Fixes.** A mistake in a published course is fixed by publishing a corrected course under a new id. Progress does not carry over. With one learner this is acceptable, and it avoids a migration system.
+- **Fixes.** A mistake in a published course is fixed by publishing a corrected course under a new id. Progress does not carry over.
 
 ---
 
@@ -310,7 +311,7 @@ SQLite, one file at `PLATO_DB_PATH`, WAL mode, `foreign_keys=ON`.
 | `concept_schedule` | `course_id`, `concept_id`, `lesson_day`, `due_day`, `interval_days`, `ease`, `last_event_day`, `later_day_reviews`, `last_grade`, `version_cursor` | PK (`course_id`, `concept_id`); index `due_day`. Created when the concept's lesson is completed (§7.4). |
 | `answer_note` | `id`, `course_id`, `key_question_id`, `lesson_id` (null when added on the Answers tab), `text`, `created_at`, `updated_at` | Index (`course_id`, `key_question_id`, `created_at`). Hard delete. |
 | `draft` | `key`, `text`, `updated_at` | PK `key`: `recall:<course>:<lesson>`, `short:<course>:<exercise>` or `note:<course>:<lesson>:<kq>`. Deleted when its text is submitted. The recall draft becomes `lesson_progress.recall_text` when the learner moves on to tick. |
-| `session` | `id`, `kind` (`standard`/`reviews_only`/`full_lesson`), `minutes`, `course_id` (null for a session without a target), `review_queue` (JSON), `checkpoint_queue` (JSON), `position` (JSON `SessionPosition`), `active_ms`, `started_at`, `ended_at` | At most one session has `ended_at` null. Starting a new one closes the old one. |
+| `session` | `id`, `kind` (`standard`/`reviews_only`/`full_lesson`), `minutes`, `course_id` (null for a session without a target), `review_queue` (JSON), `checkpoint_queue` (JSON), `position` (JSON `SessionPosition`), `last_event_id`, `active_ms`, `started_at`, `ended_at` | At most one session has `ended_at` null. Starting a new one closes the old one. |
 | `shown_up_day` | `day` | PK. `INSERT OR IGNORE` with every progress event (§7.1). The counter on Today is `COUNT(*)`. |
 
 **Stored vs derived.**
@@ -325,7 +326,7 @@ Pure functions with no I/O and no clock. The server calls them inside the transa
 
 ### 7.1 Days and showing up
 
-- **Learning day.** The local date in `PLATO_TIME_ZONE` (an IANA name, default `UTC`), with the day starting at **04:00** (`DAY_START_HOUR = 4`), so a 01:00 session counts as the previous day. There is one learner, so the zone is configuration, not data.
+- **Learning day.** The local date in `PLATO_TIME_ZONE` (an IANA name, default `UTC`), with the day starting at **04:00** (`DAY_START_HOUR = 4`), so a 01:00 session counts as the previous day.
 - **Showing up** on a day means recording at least one progress event that day. Progress events are the player events in §8.4 (all except `continue` and `budget-end`) and a skip from the Syllabus. Opening the app and notes edited on the Answers tab do not count. The counter on Today (WF-A1.4) only grows.
 
 ### 7.2 Marking (spec F5)
@@ -578,7 +579,7 @@ app/dev/preview/[courseId]/page.tsx             test hooks only (§11.4)
 app/api/test/clock/route.ts                     test hooks only (§10.1)
 ```
 
-- **Course tabs** are a client `CourseTabs` component: a `<nav>` of links styled as tabs, with `aria-current="page"` on the active one (from `useSelectedLayoutSegment`). Each tab is its own URL, as in the wireframes' address bars, so they are links, not the Base UI `Tabs` widget, whose tab and tabpanel roles would be wrong.
+- **Course tabs** are a client `CourseTabs` component: a `<nav>` of links styled as tabs, with `aria-current="page"` on the active one (from `useSelectedLayoutSegment`). Each tab is its own URL, as in the wireframes' address bars.
 - Unknown course ids call `notFound()`. Test-hook routes call `notFound()` unless test hooks are on.
 - Lessons cannot be opened directly. A lesson is reached only as a session target (spec F3, F8).
 
@@ -647,8 +648,8 @@ A client `<PlayerFrame>` wraps a client unit component keyed by `unitKey`, so lo
 **Delivery and consistency:**
 - Events go through a small client **outbox**, sent one at a time in order. A failed send is retried with the same payload before any later event is sent. After three failures the frame shows "Saving…" and keeps retrying; `finishUnit` waits for the outbox to drain.
 - Every event carries a client-generated UUID, the expected position (the session position, plus the lesson position inside a lesson unit) and the current `activeMs`.
-- The server first checks the UUID. An event it has already applied returns `ok`.
-- It then applies a new event only if the expected position matches the stored one. If not (for example a second tab, or a session closed elsewhere), it ignores the event and the client calls `router.refresh()` to load the true state.
+- The server first checks the UUID against `session.last_event_id` (and, for answers, `attempt.id`). Events arrive strictly in order, so a re-sent event is always the last one applied, and it returns `ok`.
+- It then applies a new event, and stores its UUID as `last_event_id`, only if the expected position matches the stored one. If not (for example a second tab, or a session closed elsewhere), it ignores the event and the client calls `router.refresh()` to load the true state.
 - A reload always restores the stored position, including an answered item's feedback.
 
 **Typed text** (recall, short answers, notes):
@@ -662,7 +663,7 @@ A client `<PlayerFrame>` wraps a client unit component keyed by `unitKey`, so lo
 
 ### 8.5 Security
 
-- **Passcode.** `PLATO_PASSCODE` (at least 20 characters) and `PLATO_COOKIE_SECRET` are required in production; the server refuses to start without them or with a shorter passcode. A passcode that long makes guessing impractical, so there is no rate limiting.
+- **Passcode.** `PLATO_PASSCODE` (at least 20 characters) and `PLATO_COOKIE_SECRET` are required in production; the server refuses to start without them or with a shorter passcode.
 - **Cookie.** `/unlock` compares the passcode with `timingSafeEqual`, then sets an HttpOnly, Secure, SameSite=Lax cookie holding an HMAC-signed expiry one year out.
 - **`requireLearner()`** verifies the cookie in every DAL function and Server Action. `proxy.ts` only redirects early. In development with no passcode set, the gate is off.
 - **Pipeline endpoint.** Requires `Authorization: Bearer <PLATO_PASSCODE>` and returns only unresolved requests (§11.1).
@@ -755,7 +756,7 @@ All screens use stock shadcn components and the default type scale (text-sm body
   - The ⋯ menu offers *Mark as skipped* on lessons that are not *Completed* or *Skipped*, and *Unskip* on *Skipped* lessons.
 - **Answers (WF-C2).**
   - Under "Your notes. Not graded.", each key question shows "Lessons 1, 2, 3, 7" (the lessons that advance it), its answer notes as sticky notes, and an "+ Add note" sticky note.
-  - A question with no notes shows only the empty sticky.
+  - A question with no answer notes shows only the "+ Add note" sticky note.
 - **Sources (WF-C3).** Grouped by `group` in first-appearance order. Each source is numbered by its position in the course's source list, with its date, and each row has `id="s<n>"`.
 - **Library (WF-H1).**
   - Sections in order: *In progress* (most recently used first), *Ready* (newest published first), *Complete* ("n of n completed ✓") and *Requested* (newest first).
@@ -785,7 +786,7 @@ All screens use stock shadcn components and the default type scale (text-sm body
 
 ### 10.1 Test setup
 
-- **Standalone server.** e2e runs `node .next/standalone/server.js` after copying `public/` and `.next/static/` beside it, with a fresh DB, `PLATO_CONTENT_DIR=$PWD/e2e/fixtures/content` and a test passcode. A global setup unlocks once and stores the cookie.
+- **Standalone server.** e2e runs `node .next/standalone/server.js` after copying `public/` and `.next/static/` beside it, with a fresh DB, `PLATO_CONTENT_DIR=$PWD/e2e/fixtures/content` and a test passcode. A global setup unlocks once and stores the cookie. The fixture directory has its own `published.json` and `not-built.json`.
 - **Test hooks.** `PLATO_TEST_HOOKS=1` turns on: loading draft courses, the development preview route, and `POST /api/test/clock { days }`, which sets an offset added to `now()` so a test can move to the next day. The Docker image never sets it.
 - **Viewports.** All journeys run in desktop Chromium. Journeys 2, 4 and 7 also run in a 390×844 mobile project.
 
@@ -895,7 +896,7 @@ How it checks:
 - **Image.** A Dockerfile builds the standalone output and copies `public/` and `.next/static/` beside it. The container runs `node server.js`. Migrations run in `instrumentation.ts` before the server accepts requests.
 - **One instance only**, always running, because SQLite has one writer. On Fly this means one machine with auto-stop off.
 - **Backups.**
-  - The host's daily volume snapshots are the primary backup. Fly volumes are snapshotted daily by default; on a VPS, the provider's snapshot feature is turned on.
+  - The host's daily volume snapshots are the primary backup. Fly volumes are snapshotted daily by default; on other hosts, the provider's snapshot feature is turned on.
   - `npm run db:backup` writes a consistent copy with `VACUUM INTO`, for manual backups and restore drills.
   - The README documents restoring from a snapshot or a backup file, and T22 performs the restore once.
 - **Errors.** Server errors go to stdout. `error.tsx` boundaries show a plain retry message. There is no telemetry service.
@@ -932,15 +933,15 @@ Decisions where the spec is silent or ambiguous. Each is implemented as stated, 
 Reviewers should reject any of these in a PR:
 
 - Accounts, a users table, a `learner_id` column, OAuth or roles.
-- Postgres, Redis, queues, Cache Components, custom cache handlers, continuous replication, or more than one instance.
+- Postgres, Redis, queues, Cache Components, custom cache handlers, or more than one instance.
 - Content in the database, a CMS or admin UI, course versioning, or moving progress between courses.
 - Stored derived state: statuses, mastery, last-used times, summaries, or counters other than `shown_up_day`.
-- A REST or tRPC API beyond the pipeline Route Handler, a client state library, beacons, websockets, or saving on a timer.
+- A REST or tRPC API beyond the pipeline Route Handler, a client state library, websockets, or saving on a timer.
 - FSRS, interval fuzz, leech detection, tunable scheduling, or fuzzy answer matching.
 - Event sourcing or replay. The attempt log is append-only and is read only for counts, first attempts and summaries.
 - Offline/PWA support, notifications, analytics, i18n or Storybook.
-- Client-side Markdown or Mermaid, MDX, syntax highlighting, or stored rendered HTML.
-- Content hashes, JSON Schema exports, or schema-version upcasters before a second schema version exists.
+- Client-side Markdown or Mermaid, MDX, or stored rendered HTML.
+- Schema-version upcasters before a second schema version exists.
 - In-app pipeline triggers, webhooks, cron, or link checking in CI.
 
 ---
@@ -953,11 +954,11 @@ Each task is one PR with its tests, and passes CI. "Done when" includes the §10
 
 | ID | Task | Depends on | Done when |
 |---|---|---|---|
-| T01 | **Project setup**: Vitest, Playwright with the standalone-server setup (§10.1), the axe spec, `tsx`, ESLint import boundaries, scripts, `next.config.ts` (§4), shadcn components (§3.2), a placeholder home page, Dockerfile, CI workflow | — | CI runs every job, and the Docker image starts and serves the placeholder |
+| T01 | **Project setup**: Vitest (with the `server-only` alias), Playwright with the standalone-server setup (§10.1), the axe spec, `tsx`, ESLint import boundaries, scripts, `next.config.ts` (§4), shadcn components (§3.2), a placeholder home page, Dockerfile, CI workflow | — | CI runs every job, and the Docker image starts and serves the placeholder |
 | T02 | **Database and clock**: Drizzle schema (§6), lazy client, migrations in `instrumentation.ts`, `clock.ts` with the test clock route | T01 | Migrations apply on start in the standalone image, and the test clock moves `now()` |
 | T03 | **Auth**: `/unlock`, cookie signing, `requireLearner()` (cookie or bearer), `proxy.ts` with its matcher, start-up checks | T01 | Unit tests for signing pass; e2e: locked → unlock → placeholder home |
 | T04 | **Content schema and loader**: zod schema, `normalizeAnswer`, manifest and draft filtering, citation numbering, derived lengths | T01 | Schema tests pass, and the loader returns typed courses from a directory |
-| T05 | **Fixture courses** (§10.2) | T04 | It parses with the schema |
+| T05 | **Fixture courses** (§10.2) | T04 | Both parse with the schema |
 | T06 | **Renderer**: unified pipeline, `remarkPlato`, KaTeX, code blocks, SVG inlining and sanitizing, inline fields, production memoization | T04, T05 | A snapshot test passes for each directive, and every fixture brief renders |
 | T07 | **Validator and publishing**: `course:validate` (structure, `--publish`, `--json`), `course:publish`, `course:not-built`, `content:check` | T05, T06 | The fixture passes structure validation; every rule's mutation fails; `content:check` rejects an edited published course |
 | T08 | **Schema trial and pipeline doc**: an agent authors one real lesson against the schema and validator; fix what it trips on; write `docs/v1/course-pipeline.md` (§11.6) | T07 | The lesson validates, schema and validator fixes are merged, and the doc is reviewed against §11 |
