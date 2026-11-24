@@ -9,7 +9,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { isAbsolute, join, relative, resolve } from "node:path"
 
-import { isScalar, parseDocument, visit } from "yaml"
+import { isScalar, parseDocument, visit, YAMLError } from "yaml"
 import type { z } from "zod"
 
 import { testHooksEnabled } from "@/lib/test-hooks"
@@ -148,6 +148,31 @@ function parseContentYaml(text: string): unknown {
   return doc.toJS()
 }
 
+/** YAML error codes that unquoted prose causes, such as a ": " or a leading quote. */
+const PROSE_ERROR_CODES = new Set([
+  "BLOCK_AS_IMPLICIT_KEY",
+  "MULTILINE_IMPLICIT_KEY",
+  "UNEXPECTED_TOKEN",
+])
+
+/** Appended to the YAML syntax errors that unquoted prose causes. */
+export const YAML_HINT =
+  '\nHint: prose that contains ": " or " #", or starts with a quote, [, {, *, & or !, must be a block scalar (|-) or quoted.'
+
+/**
+ * Appended when a key has spaces in it: in `{ id: x, text: a, b }` the
+ * unquoted comma ends the text, and "b" becomes a key.
+ */
+export const FLOW_COMMA_HINT =
+  ". A key with spaces usually means an unquoted comma inside a { … } mapping: quote the text, or write the mapping one key per line."
+
+/** Whether `key` follows a comma on a line with a `{ … }` flow mapping. */
+function inFlowMapping(text: string, key: string): boolean {
+  return text
+    .split("\n")
+    .some((line) => line.includes("{") && line.includes(`, ${key}`))
+}
+
 /**
  * Reads, parses and schema-checks one content file. Throws a `ContentError`
  * naming the file (relative to `root` when inside it). Exported for the
@@ -165,11 +190,11 @@ export function parseContentFile<S extends z.ZodType>(
   try {
     data = format === "yaml" ? parseContentYaml(text) : JSON.parse(text)
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const prose =
+      error instanceof YAMLError && PROSE_ERROR_CODES.has(error.code)
     throw new ContentError(name, [
-      {
-        path: [],
-        message: error instanceof Error ? error.message : String(error),
-      },
+      { path: [], message: prose ? `${message}${YAML_HINT}` : message },
     ])
   }
   const result = schema.safeParse(data)
@@ -178,7 +203,12 @@ export function parseContentFile<S extends z.ZodType>(
       name,
       result.error.issues.map((i) => ({
         path: i.path.map((p) => (typeof p === "symbol" ? String(p) : p)),
-        message: i.message,
+        message:
+          format === "yaml" &&
+          i.code === "unrecognized_keys" &&
+          i.keys.some((k) => /\s/.test(k) && inFlowMapping(text, k))
+            ? `${i.message}${FLOW_COMMA_HINT}`
+            : i.message,
       }))
     )
   return result.data

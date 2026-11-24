@@ -2,6 +2,7 @@ import { renameSync, symlinkSync } from "node:fs"
 import { join } from "node:path"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { stringify } from "yaml"
 
 import {
   createTestContent,
@@ -145,6 +146,55 @@ describe("loading a course", () => {
     content.writeFile("courses/bad/course.yaml", "id: [unclosed")
     expect(() => loadCourseDir(`${content.root}/courses/bad`)).toThrow(
       ContentError
+    )
+  })
+
+  it("hints at the usual cause of a YAML syntax error in prose", () => {
+    content.writeFile("courses/bad/course.yaml", "title: Note: a colon\n")
+    expect(() => loadCourseDir(`${content.root}/courses/bad`)).toThrow(
+      "must be a block scalar (|-) or quoted"
+    )
+  })
+
+  it("hints at an unquoted comma in a flow mapping", () => {
+    content.writeCourse(makeCourse("cells"))
+    content.writeFile(
+      "courses/cells/lessons/two.yaml",
+      stringify(makeLesson("two")).replace(
+        /^title: .*$/m,
+        "title: Two\nhook: { text: Red, or blue, keyQuestion: q1 }"
+      )
+    )
+    expect(() => loadCourseDir(`${content.root}/courses/cells`)).toThrow(
+      'Unrecognized key: "or blue". A key with spaces usually means an unquoted comma'
+    )
+  })
+
+  it("gives no prose hint for other YAML errors", () => {
+    for (const text of ["title: A\ntitle: B\n", "modules:\n\t- id: x\n"]) {
+      content.writeFile("courses/bad/course.yaml", text)
+      let message = ""
+      try {
+        loadCourseDir(`${content.root}/courses/bad`)
+      } catch (error) {
+        message = (error as Error).message
+      }
+      expect(message, text).not.toBe("")
+      expect(message, text).not.toContain("Hint:")
+    }
+  })
+
+  it("gives no flow-mapping hint for a block-style key with spaces", () => {
+    content.writeCourse(makeCourse("cells"))
+    content.writeFile(
+      "courses/cells/lessons/two.yaml",
+      stringify({ ...makeLesson("two"), "why this matters": "x" })
+    )
+    expect(() => loadCourseDir(`${content.root}/courses/cells`)).toThrow(
+      'Unrecognized key: "why this matters"'
+    )
+    expect(() => loadCourseDir(`${content.root}/courses/cells`)).not.toThrow(
+      "{ … } mapping"
     )
   })
 })

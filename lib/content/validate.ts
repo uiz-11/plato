@@ -411,6 +411,7 @@ class CourseChecks {
         value: c.course.policyNote,
       })
     for (const f of courseFields) this.inline(f, courseCtx, null)
+    for (const f of coursePlainFields(c.course, this.courseFile)) this.plain(f)
 
     for (const { lesson, brief } of c.lessons) {
       const file = this.md(lesson.id)
@@ -446,7 +447,21 @@ class CourseChecks {
 
       for (const f of lessonInlineFields(lesson, this.yaml(lesson.id)))
         this.inline(f, ctx, lesson.id)
+      for (const f of lessonPlainFields(lesson, this.yaml(lesson.id)))
+        this.plain(f)
     }
+  }
+
+  /** A plain-text field shown literally must not carry Markdown syntax. */
+  private plain(f: PlainField) {
+    const markup = plainTextMarkup(f.value, { codeSpans: f.codeSpans })
+    if (markup)
+      this.out.error(
+        "markdown",
+        f.file,
+        f.path,
+        `plain text, not Markdown: ${markup} would show literally; write it in words, or move it to a Markdown field`
+      )
   }
 
   private inline(f: InlineField, ctx: RenderContext, lessonId: string | null) {
@@ -1240,6 +1255,102 @@ function lessonInlineFields(lesson: Lesson, file: string): InlineField[] {
       opts(e.sentences, [...p, "sentences"])
       opts(e.fixes, [...p, "fixes"])
     }
+  })
+  return f
+}
+
+/**
+ * A `$…$` span as Pandoc reads one: no space just inside either dollar, and
+ * no digit right after the closing one. So "$x$" and "$n + 1$" are math, while
+ * "$5 to $10" and "$5-$10" are prices.
+ */
+const MATH_SPAN = /\$(?:\S|\S[^$\n]*?\S)\$(?!\d)/
+
+/**
+ * Markup that an author is likely to have meant as Markdown, in a field the
+ * app shows as plain text: a citation or label directive, `$…$` math, an
+ * escaped dollar, or (unless `codeSpans` is false) a backtick code span. A
+ * lone dollar ("costs $5") is fine.
+ */
+export function plainTextMarkup(
+  value: string,
+  { codeSpans = true }: { codeSpans?: boolean } = {}
+): string | null {
+  const directive = value.match(/:(cite|general|uncertain|contested)\[/)
+  if (directive) return `the directive ${quote(`:${directive[1]}[…]`)}`
+  const math = value.match(MATH_SPAN)
+  if (math) return `the math ${quote(math[0])}`
+  if (value.includes("\\$"))
+    return `the escaped dollar "\\$" (plain text needs no escape)`
+  const code = codeSpans && value.match(/`[^`\n]+`/)
+  if (code) return `the code span ${quote(code[0])}`
+  return null
+}
+
+/**
+ * A field the app shows as plain text. Source titles keep backticks, because
+ * they reproduce the source's own title.
+ */
+type PlainField = InlineField & { codeSpans?: boolean }
+
+/** Fields of a course that the app shows as plain text, with their YAML paths. */
+function coursePlainFields(course: Course, file: string): PlainField[] {
+  const f: PlainField[] = [
+    { file, path: ["title"], value: course.title },
+    { file, path: ["coverLabel"], value: course.coverLabel },
+  ]
+  course.keyQuestions.forEach((q, i) =>
+    f.push({ file, path: ["keyQuestions", i, "text"], value: q.text })
+  )
+  course.modules.forEach((m, i) =>
+    f.push({ file, path: ["modules", i, "title"], value: m.title })
+  )
+  course.sources.forEach((s, i) => {
+    f.push({ file, path: ["sources", i, "group"], value: s.group })
+    f.push({
+      file,
+      path: ["sources", i, "title"],
+      value: s.title,
+      codeSpans: false,
+    })
+    f.push({ file, path: ["sources", i, "publisher"], value: s.publisher })
+    if (s.position)
+      f.push({ file, path: ["sources", i, "position"], value: s.position })
+  })
+  return f
+}
+
+/** Fields of a lesson that the app shows as plain text, with their YAML paths. */
+function lessonPlainFields(lesson: Lesson, file: string): PlainField[] {
+  const f: PlainField[] = []
+  const add = (path: Finding["path"], value: string) =>
+    f.push({ file, path, value })
+  const links = (
+    list: Lesson["beyond"]["simplified"][number]["links"],
+    path: Finding["path"]
+  ) =>
+    list.forEach((l, i) => {
+      add([...path, i, "title"], l.title)
+      add([...path, i, "adds"], l.adds)
+    })
+
+  add(["title"], lesson.title)
+  if (lesson.hook) add(["hook", "text"], lesson.hook.text)
+  lesson.concepts.forEach((c, i) =>
+    add(["concepts", i, "statement"], c.statement)
+  )
+  lesson.beyond.simplified.forEach((s, i) =>
+    links(s.links, ["beyond", "simplified", i, "links"])
+  )
+  lesson.beyond.notCovered.forEach((n, i) => {
+    add(["beyond", "notCovered", i, "topic"], n.topic)
+    add(["beyond", "notCovered", i, "why"], n.why)
+    links(n.links, ["beyond", "notCovered", i, "links"])
+  })
+  lesson.exercises.forEach((e, i) => {
+    if (e.type !== "short") return
+    add(["exercises", i, "sample"], e.sample)
+    e.checklist.forEach((c, j) => add(["exercises", i, "checklist", j], c))
   })
   return f
 }
