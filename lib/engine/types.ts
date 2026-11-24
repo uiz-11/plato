@@ -27,3 +27,21 @@ export type AttemptContext = "recall" | "review" | "checkpoint"
 export type Confidence = "sure" | "not_sure" | "guess"
 export type SelfMark = "full" | "partial" | "none"
 export type Grade = "forgot" | "partly" | "remembered"
+
+/** Player events (§8.4). */
+export type PlayerEventKind =
+  | "warmup-next"
+  | "guess-lock"
+  | "read-done"
+  | "recall-write"
+  | "recall-tick"
+  | "answer"
+  | "answer-next"
+  | "note-stick"
+  | "answers-skip"
+  | "skip-lesson"
+  | "budget-end"
+  | "continue"
+
+/** A learning day, `YYYY-MM-DD` (§7.1). */
+export type Day = string
