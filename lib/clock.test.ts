@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { clockOffsetDays, DAY_MS, now, setClockOffsetDays } from "./clock"
+import {
+  clockOffsetDays,
+  DAY_MS,
+  now,
+  setClockOffsetDays,
+  timeZone,
+  today,
+} from "./clock"
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -33,5 +40,23 @@ describe("clock", () => {
     setClockOffsetDays(3)
     vi.stubEnv("PLATO_TEST_HOOKS", "")
     expect(now()).toBe(1_000_000)
+  })
+})
+
+describe("today", () => {
+  it("is the learning day in PLATO_TIME_ZONE, starting at 04:00", () => {
+    vi.stubEnv("PLATO_TIME_ZONE", "")
+    expect(timeZone()).toBe("UTC")
+    expect(today(Date.parse("2026-11-24T03:59:00Z"))).toBe("2026-11-23")
+    expect(today(Date.parse("2026-11-24T04:00:00Z"))).toBe("2026-11-24")
+    vi.stubEnv("PLATO_TIME_ZONE", "America/New_York")
+    // 09:30 UTC is 04:30 in New York.
+    expect(today(Date.parse("2026-11-24T09:30:00Z"))).toBe("2026-11-24")
+    expect(today(Date.parse("2026-11-24T08:30:00Z"))).toBe("2026-11-23")
+  })
+
+  it("rejects an unknown time zone", () => {
+    vi.stubEnv("PLATO_TIME_ZONE", "Mars/Olympus")
+    expect(() => timeZone()).toThrow(/PLATO_TIME_ZONE/)
   })
 })

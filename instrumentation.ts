@@ -6,6 +6,8 @@ export async function register() {
   // Refuse to start without a valid passcode gate in production (§8.5).
   const { checkAuthConfigOrExit } = await import("./lib/auth/config")
   checkAuthConfigOrExit()
+  const { checkTimeZoneOrExit } = await import("./lib/clock")
+  checkTimeZoneOrExit()
   const { migrateOrExit } = await import("./lib/db/migrate")
   migrateOrExit()
 }
