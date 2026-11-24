@@ -7,7 +7,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# better-sqlite3 ships prebuilt binaries and loads them without compiling, but
+# npm still runs `node-gyp rebuild` for its binding.gyp, which needs Python and
+# a toolchain the slim image lacks. The other install scripts (esbuild's binary
+# check, macOS-only fsevents) are not needed either.
+RUN npm ci --ignore-scripts
 
 FROM base AS build
 WORKDIR /app

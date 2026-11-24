@@ -54,6 +54,18 @@ jobs:
           done
           docker logs plato
           grep -q "Plato" /tmp/home.html
+          # Migrations ran at start (instrumentation.ts) on the volume's DB file.
+          docker exec plato node -e "
+            const db = require('better-sqlite3')(process.env.PLATO_DB_PATH, { readonly: true, fileMustExist: true });
+            const n = db.prepare(\"SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'session'\").pluck().get();
+            if (n !== 1) { console.error('migrations did not run'); process.exit(1) }
+            console.log('migrations applied')
+          "
+          # The image never turns on test hooks (§10.1), so the clock route is hidden.
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H 'content-type: application/json' -d '{"days":1}' \
+            http://127.0.0.1:3000/api/test/clock)
+          test "$status" = 404 || { echo "test clock route answered $status"; exit 1; }
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
