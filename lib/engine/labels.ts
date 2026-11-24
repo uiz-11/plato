@@ -63,6 +63,22 @@ export const COURSE_STATUS_LABEL: Record<CourseStatus, string> = {
   complete: "Complete",
 }
 
+/** A status dot's shape (§9.1): each status has its own, not just a shade (WF-J). */
+export type DotShape = "full" | "half" | "empty" | "dashed" | "square"
+
+export const LESSON_STATUS_DOT: Record<LessonStatus, DotShape> = {
+  completed: "full",
+  in_progress: "half",
+  not_started: "empty",
+  skipped: "dashed",
+}
+
+export const CHECKPOINT_STATUS_DOT: Record<CheckpointStatus, DotShape> = {
+  done: "full",
+  open: "empty",
+  locked: "square",
+}
+
 export const EXERCISE_TYPE_LABEL: Record<ExerciseType, string> = {
   mc: "multiple choice",
   fill: "fill in the blank",
