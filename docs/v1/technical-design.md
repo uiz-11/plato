@@ -89,7 +89,7 @@ scripts/                  run as npm scripts: course:validate, course:publish, c
 e2e/                      Playwright tests and fixture content
 ```
 
-ESLint `no-restricted-imports` enforces the boundaries. `lib/engine` imports nothing from `lib/db`, `lib/dal`, `next` or React. `lib/dal` and `lib/db` start with `import 'server-only'`.
+ESLint `no-restricted-imports` enforces the boundaries. `lib/engine` imports nothing from `lib/db`, `lib/dal`, `next` or React. `lib/dal` and `lib/db` start with `import 'server-only'`, except `lib/db/schema.ts`: drizzle-kit loads it in plain Node, where that package throws, and it holds no I/O.
 
 ### 3.2 Stack additions
 

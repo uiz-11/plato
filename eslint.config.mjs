@@ -70,6 +70,8 @@ const engineBoundary = {
             group: [
               "@/lib/clock",
               "**/clock",
+              "@/lib/test-hooks",
+              "**/test-hooks",
               "@/lib/auth",
               "@/lib/auth/**",
               "**/auth",
