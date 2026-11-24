@@ -1,0 +1,198 @@
+id: key-exchange
+title: Agreeing on a secret in public
+keyQuestions: [q1, q2]
+whyThisMatters: >-
+  This is the direct answer to how two strangers can agree on a secret over a
+  public channel, and it rests on a problem that is hard to reverse.
+hook:
+  text: If anyone can send you a public value, how do you know it came from your bank?
+  keyQuestion: q3
+concepts:
+  - id: c-modular
+    statement: Modular arithmetic keeps only the remainder after dividing by a fixed modulus, like hours wrapping around a clock.
+    recallPrompts:
+      - prompt: What is $15 \bmod 12$?
+        answer: '3'
+  - id: c-diffie-hellman
+    statement: In Diffie–Hellman, each side raises the other's public value to its own private number, and both reach the same secret.
+    recallPrompts:
+      - prompt: After swapping public values, what does Alice compute to get the shared secret?
+        answer: 'The value Bob sent, raised to her private number, mod $p$: $B^a \bmod p$.'
+  - id: c-discrete-log
+    statement: An eavesdropper would have to solve the discrete logarithm problem, which is believed infeasible for large primes.
+    recallPrompts:
+      - prompt: What problem must an eavesdropper solve to break Diffie–Hellman?
+        answer: The discrete logarithm problem, recovering $a$ from $g^a \bmod p$.
+guesses:
+  - id: g-public-channel
+    prompt: Two people who have never met can talk only over a line everyone can hear. Can they agree on a secret key?
+    options:
+      - id: g-public-channel-no
+        text: No, anything they say is heard by everyone
+        misconception: m-eavesdrop-sees
+      - { id: g-public-channel-yes, text: "Yes, using maths that is easy one way and hard to reverse" }
+      - { id: g-public-channel-codebook, text: Only if they share a codebook beforehand }
+    correct: g-public-channel-yes
+    why: >-
+      Diffie–Hellman lets both sides reach the same number while every message
+      is public. No codebook is needed, and hearing everything is not enough
+      to work out the secret.
+  - id: g-clock
+    prompt: On a 12-hour clock, what time is it 5 hours after 10 o'clock?
+    options:
+      - { id: g-clock-3, text: "3 o'clock" }
+      - { id: g-clock-15, text: "15 o'clock" }
+      - { id: g-clock-5, text: "5 o'clock" }
+    correct: g-clock-3
+    why: >-
+      $10 + 5 = 15$, and the hours wrap at 12, so the answer is $15 \bmod 12 = 3$.
+      A 12-hour clock has no 15, and 5 ignores the starting time.
+misconceptions:
+  - id: m-eavesdrop-sees
+    belief: If an eavesdropper sees every message exchanged, they can work out the shared key.
+    correction: >-
+      The messages carry only $g^a \bmod p$ and $g^b \bmod p$. Getting the key
+      from them means solving the discrete logarithm problem.
+beyond:
+  simplified:
+    - id: s-paint
+      text: >-
+        Paint really can be analysed in a lab, and the analogy hides that real
+        security depends on an unproven mathematical assumption, not on
+        physics.
+      analogy: paint
+      links:
+        - title: Diffie–Hellman key exchange
+          url: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange
+          adds: The full protocol, its history and how parameters are chosen
+          minutes: 20
+          level: intermediate
+          recommended: q1
+  notCovered:
+    - id: n-elliptic-curves
+      topic: Elliptic-curve Diffie–Hellman
+      why: It is the version TLS uses, but the maths of elliptic curves needs a course of its own.
+      links:
+        - title: Elliptic-curve cryptography
+          url: https://en.wikipedia.org/wiki/Elliptic-curve_cryptography
+          adds: Why elliptic curves give the same security with shorter keys
+          minutes: 25
+          level: advanced
+exercises:
+  - id: e-modular-recall
+    type: fill
+    concepts: [c-modular]
+    pool: recall
+    prompt: In arithmetic modulo 7, the number 19 is equal to ___.
+    accepted: ["5", five]
+    explanation: '$19 = 2 \times 7 + 5$, so $19 \bmod 7 = 5$.'
+    anchor: a-clock-maths
+  - id: e-modular-review
+    type: mc
+    concepts: [c-modular]
+    pool: review
+    prompt: What is $2^5 \bmod 7$?
+    options:
+      - { id: e-modular-review-4, text: "4" }
+      - { id: e-modular-review-32, text: "32" }
+      - { id: e-modular-review-3, text: "3" }
+    correct: e-modular-review-4
+    explanation: '$2^5 = 32$, and $32 = 4 \times 7 + 4$, so the remainder is 4.'
+    anchor: a-clock-maths
+  - id: e-dh-recall
+    type: scenario
+    concepts: [c-diffie-hellman]
+    pool: recall
+    scenario: >-
+      Alice and Bob use $p = 23$ and $g = 5$. Alice's private number is 6. Bob
+      sends her his public value, 19.
+    prompt: What does Alice compute to get the shared secret?
+    options:
+      - { id: e-dh-recall-right, text: '$19^6 \bmod 23$' }
+      - { id: e-dh-recall-swap, text: '$6^{19} \bmod 23$' }
+      - { id: e-dh-recall-own, text: '$5^6 \bmod 23$' }
+    correct: e-dh-recall-right
+    explanation: She raises the value she received to her own private number. $5^6 \bmod 23$ is her public value, not the secret.
+    anchor: a-exchange
+  - id: e-dh-review
+    type: spot
+    concepts: [c-diffie-hellman]
+    pool: review
+    prompt: Which step of this Diffie–Hellman description is wrong, and how should it read?
+    sentences:
+      - { id: e-dh-review-agree, text: 'Alice and Bob agree in public on $p$ and $g$.' }
+      - { id: e-dh-review-send, text: 'Each picks a private number and sends $g$ raised to it, mod $p$.' }
+      - id: e-dh-review-reveal
+        text: They then send each other their private numbers to finish.
+    faulty: e-dh-review-reveal
+    fixes:
+      - id: e-dh-review-raise
+        text: Each then raises the value received to its own private number.
+      - id: e-dh-review-hash
+        text: They then hash their private numbers together.
+    correctFix: e-dh-review-raise
+    explanation: The private numbers never leave either side; that is the whole point.
+    anchor: a-exchange
+  - id: e-dlog-recall
+    type: short
+    concepts: [c-discrete-log]
+    pool: recall
+    prompt: Why can't an eavesdropper who sees $p$, $g$, $A$ and $B$ compute the shared secret?
+    sample: They need a private number, and recovering it is the discrete logarithm problem, infeasible for large primes.
+    checklist:
+      - Needs one of the private numbers
+      - Recovering it is the discrete logarithm problem
+      - Believed infeasible for large primes
+    explanation: Public values reveal nothing useful unless the discrete logarithm can be solved.
+    anchor: a-hard-problem
+  - id: e-dlog-review
+    type: mc
+    concepts: [c-discrete-log]
+    pool: review
+    prompt: For a 2048-bit prime $p$, which task is easy?
+    options:
+      - { id: e-dlog-review-forward, text: 'Computing $g^a \bmod p$ from $g$, $a$ and $p$' }
+      - { id: e-dlog-review-back, text: 'Finding $a$ from $g^a \bmod p$' }
+      - id: e-dlog-review-both
+        text: Both are equally easy
+        misconception: m-eavesdrop-sees
+    correct: e-dlog-review-forward
+    explanation: The forward direction takes microseconds; the reverse is the discrete logarithm problem.
+    anchor: a-hard-problem
+  - id: x-public-clock
+    type: mc
+    concepts: [c-modular]
+    pool: checkpoint
+    prompt: What is $(9 + 8) \bmod 12$?
+    options:
+      - { id: x-public-clock-5, text: "5" }
+      - { id: x-public-clock-17, text: "17" }
+      - { id: x-public-clock-1, text: "1" }
+    correct: x-public-clock-5
+    explanation: "$17 = 12 + 5$, so the remainder is 5, just as 8 hours after 9 o'clock is 5 o'clock."
+    anchor: a-clock-maths
+  - id: x-public-bob
+    type: fill
+    concepts: [c-diffie-hellman]
+    pool: checkpoint
+    prompt: With $p = 23$ and $g = 5$, Bob's private number is 15, so his public value $5^{15} \bmod 23$ is ___.
+    accepted: ["19", nineteen]
+    explanation: This is the brief's worked example; Bob sends 19 in the open.
+    anchor: a-exchange
+  - id: x-public-eavesdrop
+    type: scenario
+    concepts: [c-discrete-log, c-diffie-hellman]
+    pool: checkpoint
+    scenario: >-
+      Eve records an entire Diffie–Hellman exchange that uses a 2048-bit prime:
+      $p$, $g$, $A$ and $B$.
+    prompt: What does Eve need to work out the shared secret?
+    options:
+      - { id: x-public-eavesdrop-dlog, text: To solve a discrete logarithm and recover $a$ or $b$ }
+      - id: x-public-eavesdrop-nothing
+        text: Nothing more; multiplying $A$ and $B$ gives the secret
+        misconception: m-eavesdrop-sees
+      - { id: x-public-eavesdrop-aes, text: The AES key Alice and Bob used beforehand }
+    correct: x-public-eavesdrop-dlog
+    explanation: The secret is $g^{ab} \bmod p$, which needs a private number, which needs a discrete logarithm.
+    anchor: a-hard-problem

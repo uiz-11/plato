@@ -1,0 +1,98 @@
+# Main fixture course (§10.2): two modules, four lessons, every exercise
+# type, every brief directive, math, code and a figure. Hand-written, so it
+# has no requestId.
+schemaVersion: 1
+id: how-encryption-works
+title: How encryption keeps secrets
+coverLabel: Encryption
+kind: standard
+asOf: "2026-11"
+outOfScope: >-
+  How specific ciphers such as AES work inside, elliptic curves, and the
+  full TLS handshake and record layer.
+policies: [broad, fast-moving]
+keyQuestions:
+  - id: q1
+    text: How can two strangers agree on a secret over a public channel?
+  - id: q2
+    text: What makes a cipher hard to break?
+  - id: q3
+    text: How does a website prove it is who it says it is?
+  - id: q4
+    text: Will quantum computers break today's encryption?
+modules:
+  - id: shared-secrets
+    title: Shared secrets
+    lessons: [symmetric-ciphers, hash-functions]
+    checkpoint:
+      - x-secrets-key
+      - x-secrets-bits
+      - x-secrets-vendor
+      - x-secrets-download
+      - x-secrets-spot
+      - x-secrets-short
+  - id: public-keys
+    title: Public keys
+    lessons: [key-exchange, signatures]
+    checkpoint:
+      - x-public-clock
+      - x-public-bob
+      - x-public-eavesdrop
+      - x-public-spot
+      - x-public-quantum
+      - x-public-padlock
+sources:
+  - id: src-shannon
+    group: Original papers
+    title: Communication Theory of Secrecy Systems
+    publisher: Bell System Technical Journal
+    date: "1949-10"
+    url: https://doi.org/10.1002/j.1538-7305.1949.tb00928.x
+  - id: src-diffie-hellman
+    group: Original papers
+    title: New Directions in Cryptography
+    publisher: IEEE Transactions on Information Theory
+    date: "1976-11"
+    url: https://ee.stanford.edu/~hellman/publications/24.pdf
+  - id: src-rsa
+    group: Original papers
+    title: A Method for Obtaining Digital Signatures and Public-Key Cryptosystems
+    publisher: Communications of the ACM
+    date: "1978-02"
+    url: https://dl.acm.org/doi/10.1145/359340.359342
+  - id: src-fips-197
+    group: Standards
+    title: "FIPS 197: Advanced Encryption Standard (AES)"
+    publisher: NIST
+    date: "2023-05-09"
+    url: https://csrc.nist.gov/pubs/fips/197/final
+  - id: src-fips-180
+    group: Standards
+    title: "FIPS 180-4: Secure Hash Standard"
+    publisher: NIST
+    date: "2015-08"
+    url: https://csrc.nist.gov/pubs/fips/180-4/upd1/final
+  - id: src-rfc-8446
+    group: Standards
+    title: The Transport Layer Security (TLS) Protocol Version 1.3
+    publisher: IETF
+    date: "2018-08"
+    url: https://www.rfc-editor.org/rfc/rfc8446
+  - id: src-nist-pqc
+    group: Standards
+    title: NIST Releases First 3 Finalized Post-Quantum Encryption Standards
+    publisher: NIST
+    date: "2024-08-13"
+    url: https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards
+  - id: src-shattered
+    group: Research
+    title: "SHAttered: the first SHA-1 collision"
+    publisher: CWI Amsterdam and Google Research
+    date: "2017-02"
+    url: https://shattered.io/
+  - id: src-owasp-passwords
+    group: Guides
+    title: Password Storage Cheat Sheet
+    publisher: OWASP
+    date: "2025"
+    url: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html

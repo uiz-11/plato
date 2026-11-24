@@ -1,0 +1,216 @@
+id: hash-functions
+title: Fingerprints for data
+keyQuestions: [q2, q3]
+whyThisMatters: >-
+  Hashes are how software, passwords and signatures prove that data is
+  exactly what it should be, which is half of how a website proves who it is.
+hook:
+  text: Could two people who have never met agree on a key while everyone listens?
+  keyQuestion: q1
+concepts:
+  - id: c-hash-fingerprint
+    statement: A hash function turns any input into a fixed-length fingerprint that changes completely if the input changes at all.
+    recallPrompts:
+      - prompt: How long is a SHA-256 hash of a 4 GB file?
+        answer: 256 bits, the same as for any other input.
+  - id: c-hash-one-way
+    statement: A good hash is one-way, so passwords are stored as slow, salted hashes rather than as text.
+    recallPrompts:
+      - prompt: Why does a website store a hash of your password instead of the password?
+        answer: A stolen hash cannot be turned back into the password.
+      - prompt: What two defenses does good password storage add to hashing?
+        answer: A random salt and a deliberately slow hash.
+  - id: c-collision
+    statement: A collision is two inputs with the same hash; a hash is broken once collisions can be found, as SHA-1 was in 2017.
+    recallPrompts:
+      - prompt: What made SHA-1 count as broken?
+        answer: Researchers found two different files with the same SHA-1 hash.
+guesses:
+  - id: g-hash-length
+    prompt: You hash a one-word message and a whole film with SHA-256. Which hash is longer?
+    options:
+      - { id: g-hash-length-film, text: The film's }
+      - { id: g-hash-length-same, text: They are the same length }
+      - { id: g-hash-length-word, text: The word's }
+    correct: g-hash-length-same
+    why: >-
+      SHA-256 always outputs 256 bits, whatever the input. Its length does not
+      grow with the film, and it does not shrink for short inputs.
+  - id: g-password-storage
+    prompt: How should a website store your password?
+    options:
+      - id: g-password-storage-encrypted
+        text: Encrypted, so it can decrypt it when you log in
+        misconception: m-hash-reversible
+      - { id: g-password-storage-hash, text: "As a slow, salted hash" }
+      - { id: g-password-storage-plain, text: As plain text in a well-guarded database }
+    correct: g-password-storage-hash
+    why: >-
+      The site never needs your password back, only to check a guess. An
+      encrypted password can be decrypted by whoever steals the key, and plain
+      text is exposed by any breach.
+misconceptions:
+  - id: m-hash-reversible
+    belief: Hashing is a kind of encryption you can undo with the right key.
+    correction: >-
+      A hash has no key and is designed to be one-way. The only way back is to
+      guess inputs and hash each one.
+beyond:
+  simplified:
+    - id: s-hash-internals
+      text: >-
+        The brief treats a hash as a black box; real designs such as SHA-256
+        compress the input block by block.
+      links:
+        - title: SHA-2
+          url: https://en.wikipedia.org/wiki/SHA-2
+          adds: How SHA-256 processes its input in 512-bit blocks
+          minutes: 20
+          level: advanced
+  notCovered:
+    - id: n-password-hashing
+      topic: Choosing password-hashing settings
+      why: Tuning Argon2 or bcrypt is an engineering task, not a concept.
+      links:
+        - title: Password Storage Cheat Sheet
+          url: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+          adds: Recommended algorithms and cost settings
+          minutes: 15
+          level: intermediate
+    - id: n-hmac
+      topic: Keyed hashes (HMAC)
+      why: Combining a hash with a secret key is a further tool the course has no room for.
+      links:
+        - title: HMAC
+          url: https://en.wikipedia.org/wiki/HMAC
+          adds: How a shared key turns a hash into a tamper-proof tag
+          minutes: 10
+          level: intermediate
+exercises:
+  - id: e-fingerprint-recall
+    type: mc
+    concepts: [c-hash-fingerprint]
+    pool: recall
+    prompt: What is the length of a SHA-256 hash of a 4 GB file?
+    options:
+      - { id: e-fingerprint-recall-256, text: 256 bits }
+      - { id: e-fingerprint-recall-4gb, text: About 4 GB }
+      - { id: e-fingerprint-recall-depends, text: It depends on the file type }
+    correct: e-fingerprint-recall-256
+    explanation: SHA-256 always produces 256 bits, whatever the input length.
+    anchor: a-fingerprint
+  - id: e-fingerprint-review
+    type: spot
+    concepts: [c-hash-fingerprint]
+    pool: review
+    prompt: Which sentence about hash functions is wrong, and how should it read?
+    sentences:
+      - { id: e-fingerprint-review-any, text: A hash function accepts input of any length. }
+      - { id: e-fingerprint-review-fixed, text: Its output always has the same length. }
+      - id: e-fingerprint-review-one
+        text: Changing one letter of the input changes one character of the hash.
+    faulty: e-fingerprint-review-one
+    fixes:
+      - id: e-fingerprint-review-half
+        text: Changing one letter of the input changes about half of the hash's bits.
+      - id: e-fingerprint-review-nothing
+        text: Changing one letter of the input leaves the hash unchanged.
+    correctFix: e-fingerprint-review-half
+    explanation: The avalanche effect means one changed bit scrambles about half the output.
+    anchor: a-fingerprint
+  - id: e-one-way-recall
+    type: scenario
+    concepts: [c-hash-one-way]
+    pool: recall
+    scenario: >-
+      A website's user database leaks. Every password was stored as a slow,
+      salted hash.
+    prompt: What can the attacker learn directly from the leak?
+    options:
+      - id: e-one-way-recall-none
+        text: No passwords; they must guess and hash candidates one at a time
+      - id: e-one-way-recall-all
+        text: Every password, by reversing the hashes
+        misconception: m-hash-reversible
+      - { id: e-one-way-recall-short, text: Only passwords shorter than the salt }
+    correct: e-one-way-recall-none
+    explanation: Hashes are one-way, and salting and slowness make each guess expensive.
+    anchor: a-one-way
+  - id: e-one-way-review
+    type: fill
+    concepts: [c-hash-one-way]
+    pool: review
+    prompt: Because you cannot work back from a hash to its input, a cryptographic hash is called a ___ function.
+    accepted: [one-way]
+    explanation: A good hash is one-way; the only route back is guessing inputs.
+    anchor: a-one-way
+  - id: e-collision-recall
+    type: short
+    concepts: [c-collision]
+    pool: recall
+    prompt: What is a hash collision, and why does finding one break a hash?
+    sample: Two different inputs with the same hash, so an attacker can pass one off as the other.
+    checklist:
+      - Two different inputs
+      - The same hash
+      - One can be swapped for the other
+    explanation: Anything that trusts a hash also trusts every input that collides with it.
+    anchor: a-collisions
+  - id: e-collision-review
+    type: mc
+    concepts: [c-collision]
+    pool: review
+    prompt: Why was SHA-1 retired?
+    options:
+      - id: e-collision-review-pdfs
+        text: Researchers produced two different files with the same SHA-1 hash
+      - { id: e-collision-review-long, text: Its hashes became too long to store }
+      - id: e-collision-review-reverse
+        text: Its hashes could be decrypted back into the input
+        misconception: m-hash-reversible
+    correct: e-collision-review-pdfs
+    explanation: The 2017 SHAttered attack found a SHA-1 collision far faster than brute force.
+    anchor: a-collisions
+  - id: x-secrets-download
+    type: mc
+    concepts: [c-hash-fingerprint]
+    pool: checkpoint
+    prompt: Which check shows that a downloaded installer is byte-for-byte the one its publisher released?
+    options:
+      - { id: x-secrets-download-hash, text: Comparing its SHA-256 hash with the published one }
+      - { id: x-secrets-download-size, text: Comparing its file size with the published one }
+      - { id: x-secrets-download-aes, text: Encrypting it with AES }
+    correct: x-secrets-download-hash
+    explanation: Any change to the file changes its hash; many changes keep the size the same.
+    anchor: a-fingerprint
+  - id: x-secrets-spot
+    type: spot
+    concepts: [c-shared-key, c-hash-one-way]
+    pool: checkpoint
+    prompt: Which sentence is wrong, and how should it read?
+    sentences:
+      - { id: x-secrets-spot-aes, text: AES decrypts with the same key it encrypts with. }
+      - { id: x-secrets-spot-salt, text: A salt makes two equal passwords hash differently. }
+      - id: x-secrets-spot-key
+        text: A password hash can be reversed by anyone who holds the site's key.
+    faulty: x-secrets-spot-key
+    fixes:
+      - id: x-secrets-spot-nokey
+        text: A password hash uses no key and can only be attacked by guessing.
+      - id: x-secrets-spot-aeskey
+        text: A password hash can be reversed with an AES key.
+    correctFix: x-secrets-spot-nokey
+    explanation: Hashing and encryption are different tools; hashing has no key and no way back.
+    anchor: a-one-way
+  - id: x-secrets-short
+    type: short
+    concepts: [c-collision, c-hash-fingerprint]
+    pool: checkpoint
+    prompt: Why is it safe to trust a SHA-256 checksum but not an MD5 one?
+    sample: MD5 collisions can be found, so a tampered file can share its hash; no SHA-256 collisions are known.
+    checklist:
+      - MD5 is broken by collisions
+      - A tampered file could match the hash
+      - SHA-256 has no known practical collisions
+    explanation: A checksum is only as trustworthy as the difficulty of finding a collision.
+    anchor: a-collisions

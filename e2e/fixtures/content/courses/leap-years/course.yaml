@@ -1,0 +1,43 @@
+# Mini-course fixture (§10.2): one module, one lesson, the smallest
+# checkpoint a mini-course allows. Hand-written, so it has no requestId.
+schemaVersion: 1
+id: leap-years
+title: Why leap years exist
+coverLabel: Leap years
+kind: mini
+asOf: "2026-11"
+outOfScope: >-
+  Other calendars, such as the Hebrew, Islamic and Chinese calendars, and leap
+  seconds.
+policies: [narrow]
+keyQuestions:
+  - id: q1
+    text: Why does the calendar need leap years at all?
+  - id: q2
+    text: Why was 1900 not a leap year when 2000 was?
+  - id: q3
+    text: How accurate is the calendar we use today?
+modules:
+  - id: the-rule
+    title: The leap-year rule
+    lessons: [leap-rule]
+    checkpoint: [x-leap-2100, x-leap-drift, x-leap-julian, x-leap-why]
+sources:
+  - id: src-britannica-gregorian
+    group: Reference works
+    title: Gregorian calendar
+    publisher: Encyclopaedia Britannica
+    date: "2025"
+    url: https://www.britannica.com/topic/Gregorian-calendar
+  - id: src-wiki-leap-year
+    group: Reference works
+    title: Leap year
+    publisher: Wikipedia
+    date: "2026"
+    url: https://en.wikipedia.org/wiki/Leap_year
+  - id: src-wiki-tropical-year
+    group: Reference works
+    title: Tropical year
+    publisher: Wikipedia
+    date: "2026"
+    url: https://en.wikipedia.org/wiki/Tropical_year
