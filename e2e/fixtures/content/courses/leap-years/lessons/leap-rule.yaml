@@ -1,0 +1,206 @@
+id: leap-rule
+title: The leap-year rule
+keyQuestions: [q1, q2, q3]
+whyThisMatters: >-
+  The whole course is this one rule: why it is needed, why it has
+  exceptions, and how well it works.
+concepts:
+  - id: c-tropical-year
+    statement: The seasons repeat every 365.2422 days or so, so a 365-day calendar drifts about a quarter of a day each year.
+    recallPrompts:
+      - prompt: About how long is a tropical year, in days?
+        answer: About 365.2422 days.
+  - id: c-julian
+    statement: The Julian calendar added a leap day every 4 years, averaging 365.25 days, which is about 11 minutes too long.
+    recallPrompts:
+      - prompt: What was wrong with a leap day every four years, with no exceptions?
+        answer: The average year was about 11 minutes too long, so the calendar drifted a day every 128 years or so.
+  - id: c-gregorian-rule
+    statement: Years divisible by 4 are leap years, except years divisible by 100, unless they are also divisible by 400.
+    recallPrompts:
+      - prompt: State the Gregorian leap-year rule.
+        answer: Divisible by 4, except by 100, unless also by 400.
+      - prompt: Was 1900 a leap year?
+        answer: No; it is divisible by 100 but not by 400.
+guesses:
+  - id: g-drift
+    prompt: With no leap years at all, about how long would it take the calendar to drift a whole month against the seasons?
+    options:
+      - { id: g-drift-12, text: About 12 years }
+      - { id: g-drift-120, text: About 120 years }
+      - { id: g-drift-1200, text: "About 1,200 years" }
+    correct: g-drift-120
+    why: >-
+      The error is about a quarter of a day a year, so 30 days takes about
+      $30 / 0.2422 \approx 124$ years. Twelve years gives only three days, and
+      1,200 years would give about ten months.
+  - id: g-1900
+    prompt: Was 1900 a leap year?
+    options:
+      - { id: g-1900-no, text: No }
+      - id: g-1900-yes
+        text: Yes, it is divisible by 4
+        misconception: m-every-four
+      - { id: g-1900-julian, text: Only in countries that had switched calendars }
+    correct: g-1900-no
+    why: >-
+      1900 is divisible by 100 and not by 400, so the Gregorian rule skips it.
+      Divisibility by 4 is only the first part of the rule, and the calendar
+      switch does not change how Gregorian dates count.
+misconceptions:
+  - id: m-every-four
+    belief: Every year divisible by 4 is a leap year.
+    correction: >-
+      Century years are leap years only when divisible by 400, so 1900 and
+      2100 are not, while 2000 was.
+beyond:
+  simplified:
+    - id: s-tropical-year
+      text: >-
+        The brief treats the tropical year as a fixed length; it varies
+        slightly with how it is measured and changes over millennia.
+      links:
+        - title: Tropical year
+          url: https://en.wikipedia.org/wiki/Tropical_year
+          adds: How the length of the year is measured and why it changes
+          minutes: 15
+          level: intermediate
+          recommended: q3
+  notCovered:
+    - id: n-leap-seconds
+      topic: Leap seconds
+      why: They correct clocks for Earth's rotation, not the calendar for the seasons.
+      links:
+        - title: Leap second
+          url: https://en.wikipedia.org/wiki/Leap_second
+          adds: Why clocks, not calendars, occasionally add a second
+          minutes: 10
+          level: intro
+exercises:
+  - id: e-tropical-recall
+    type: mc
+    concepts: [c-tropical-year]
+    pool: recall
+    prompt: Why does a 365-day calendar drift against the seasons?
+    options:
+      - { id: e-tropical-recall-quarter, text: The seasons take about a quarter of a day longer than 365 days }
+      - { id: e-tropical-recall-month, text: The months have different lengths }
+      - { id: e-tropical-recall-slow, text: The Earth's orbit is slowing down quickly }
+    correct: e-tropical-recall-quarter
+    explanation: The tropical year is about 365.2422 days, so each 365-day year falls short.
+    anchor: a-tropical-year
+  - id: e-tropical-review
+    type: fill
+    concepts: [c-tropical-year]
+    pool: review
+    prompt: The time from one March equinox to the next is called the ___ year.
+    accepted: [tropical]
+    explanation: The tropical year is the cycle of the seasons, about 365.2422 days.
+    anchor: a-tropical-year
+  - id: e-julian-recall
+    type: scenario
+    concepts: [c-julian]
+    pool: recall
+    scenario: >-
+      A country keeps the Julian calendar, with a leap day every four years and
+      no exceptions, for 1,000 years.
+    prompt: What happens to the date of the spring equinox?
+    options:
+      - { id: e-julian-recall-earlier, text: It moves earlier by about 8 days }
+      - { id: e-julian-recall-stays, text: It stays on the same date }
+      - { id: e-julian-recall-later, text: It moves later by about 8 days }
+    correct: e-julian-recall-earlier
+    explanation: Julian years run about 11 minutes long, a day every 128 years or so, so the calendar runs ahead and the equinox falls earlier.
+    anchor: a-julian
+  - id: e-julian-review
+    type: spot
+    concepts: [c-julian]
+    pool: review
+    prompt: Which sentence about the Julian calendar is wrong, and how should it read?
+    sentences:
+      - { id: e-julian-review-every, text: It added a leap day every four years. }
+      - { id: e-julian-review-avg, text: Its average year was 365.25 days. }
+      - id: e-julian-review-short
+        text: Its average year was about 11 minutes shorter than the seasons.
+    faulty: e-julian-review-short
+    fixes:
+      - id: e-julian-review-long
+        text: Its average year was about 11 minutes longer than the seasons.
+      - id: e-julian-review-exact
+        text: Its average year matched the seasons exactly.
+    correctFix: e-julian-review-long
+    explanation: 365.25 is more than 365.2422, so the Julian year was too long.
+    anchor: a-julian
+  - id: e-gregorian-recall
+    type: short
+    concepts: [c-gregorian-rule]
+    pool: recall
+    prompt: Explain why 2000 was a leap year but 1900 was not.
+    sample: Century years are leap years only if divisible by 400; 2000 is, 1900 is not.
+    checklist:
+      - Century years are an exception
+      - Divisible by 400 makes them leap years again
+    explanation: The rule is divisible by 4, except by 100, unless by 400.
+    anchor: a-gregorian-rule
+  - id: e-gregorian-review
+    type: mc
+    concepts: [c-gregorian-rule]
+    pool: review
+    prompt: Which of these years is a leap year?
+    options:
+      - { id: e-gregorian-review-2400, text: "2400" }
+      - id: e-gregorian-review-2100
+        text: "2100"
+        misconception: m-every-four
+      - { id: e-gregorian-review-2026, text: "2026" }
+    correct: e-gregorian-review-2400
+    explanation: 2400 is divisible by 400. 2100 is a century not divisible by 400, and 2026 is not divisible by 4.
+    anchor: a-gregorian-rule
+  - id: x-leap-2100
+    type: fill
+    concepts: [c-gregorian-rule]
+    pool: checkpoint
+    prompt: The next century year that will be a leap year is ___.
+    accepted: ["2400"]
+    explanation: 2100, 2200 and 2300 are not divisible by 400; 2400 is.
+    anchor: a-gregorian-rule
+  - id: x-leap-drift
+    type: mc
+    concepts: [c-tropical-year, c-gregorian-rule]
+    pool: checkpoint
+    prompt: How many leap years does the Gregorian calendar have in every 400 years?
+    options:
+      - { id: x-leap-drift-97, text: "97" }
+      - id: x-leap-drift-100
+        text: "100"
+        misconception: m-every-four
+      - { id: x-leap-drift-96, text: "96" }
+    correct: x-leap-drift-97
+    explanation: 100 years divisible by 4, minus the three centuries not divisible by 400.
+    anchor: a-accuracy
+  - id: x-leap-julian
+    type: scenario
+    concepts: [c-julian]
+    pool: checkpoint
+    scenario: >-
+      In 1582 the spring equinox was falling around 11 March, about ten days
+      earlier than when the Julian calendar's rules were fixed.
+    prompt: What did the Gregorian reform do about the days already lost?
+    options:
+      - { id: x-leap-julian-drop, text: It dropped ten days at once }
+      - { id: x-leap-julian-extra, text: It added a leap day every year for ten years }
+      - { id: x-leap-julian-none, text: Nothing; it only changed the rule for the future }
+    correct: x-leap-julian-drop
+    explanation: Thursday 4 October 1582 was followed by Friday 15 October.
+    anchor: a-gregorian-rule
+  - id: x-leap-why
+    type: short
+    concepts: [c-tropical-year]
+    pool: checkpoint
+    prompt: In one sentence, why does the calendar need leap years at all?
+    sample: The seasons take about 365.24 days, so a 365-day calendar would drift away from them.
+    checklist:
+      - The year of seasons is not a whole number of days
+      - Without correction the calendar drifts
+    explanation: A leap day now and then keeps the calendar in step with the tropical year.
+    anchor: a-tropical-year

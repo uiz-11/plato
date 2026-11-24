@@ -1,0 +1,209 @@
+id: symmetric-ciphers
+title: Locks with one key
+keyQuestions: [q2, q1]
+whyThisMatters: >-
+  Every secure connection you make still ends up using a symmetric cipher, so
+  what makes one strong is the first half of what makes a cipher hard to
+  break.
+hook:
+  text: How can you tell that a file you downloaded is exactly the one its author published?
+  keyQuestion: q3
+concepts:
+  - id: c-shared-key
+    statement: A symmetric cipher uses the same secret key to encrypt and to decrypt.
+    recallPrompts:
+      - prompt: In a symmetric cipher, what decrypts the ciphertext?
+        answer: The same key that encrypted it.
+      - prompt: 'What does $(m \oplus k) \oplus k$ equal?'
+        answer: '$m$, the original message.'
+  - id: c-kerckhoffs
+    statement: A cipher's security should rest on the key alone, never on keeping the method secret.
+    recallPrompts:
+      - prompt: What should stay secret in a well-designed cipher?
+        answer: Only the key; the algorithm can be public.
+  - id: c-key-length
+    statement: Each extra key bit doubles the number of keys a brute-force attacker must try.
+    recallPrompts:
+      - prompt: How many possible values does an $n$-bit key have?
+        answer: '$2^n$'
+guesses:
+  - id: g-caesar
+    prompt: A Caesar cipher shifts every letter by the same number of places. How many useful keys does it have?
+    options:
+      - { id: g-caesar-25, text: "25" }
+      - { id: g-caesar-thousands, text: About 26 thousand }
+      - { id: g-caesar-millions, text: Millions }
+    correct: g-caesar-25
+    why: >-
+      The key is just the shift, and there are 26 letters, so only 25 shifts
+      change anything. Thousands or millions would need a key that varies
+      letter by letter.
+  - id: g-open-design
+    prompt: Which makes a cipher stronger?
+    options:
+      - id: g-open-design-secret
+        text: Keeping the algorithm secret
+        misconception: m-secret-algorithm
+      - id: g-open-design-public
+        text: A public, well-studied algorithm with a long random key
+      - id: g-open-design-monthly
+        text: Switching to a new home-made algorithm every month
+    correct: g-open-design-public
+    why: >-
+      Public study finds weaknesses before attackers do, and a long random
+      key defeats brute force. Secret or home-made algorithms have had no such
+      scrutiny, and a leaked algorithm cannot be changed like a key.
+misconceptions:
+  - id: m-secret-algorithm
+    belief: A secret algorithm is safer than a public one.
+    correction: >-
+      Public algorithms are attacked by thousands of experts, so their flaws
+      surface early. Secrets leak, and a leaked algorithm cannot be replaced
+      as easily as a key.
+beyond:
+  simplified:
+    - id: s-xor-only
+      text: >-
+        Real ciphers such as AES do far more than XOR with a key: they mix and
+        substitute bits over many rounds.
+      links:
+        - title: Advanced Encryption Standard
+          url: https://en.wikipedia.org/wiki/Advanced_Encryption_Standard
+          adds: How AES rounds substitute, shift and mix bytes
+          minutes: 20
+          level: intermediate
+          recommended: q2
+    - id: s-padlock
+      text: >-
+        The padlock analogy breaks down because a real box can be smashed
+        open; a good cipher offers no shortcut that is faster than trying
+        keys.
+      analogy: padlock
+      links: []
+  notCovered:
+    - id: n-modes
+      topic: Modes of operation
+      why: How a block cipher handles messages longer than one block is an engineering detail beyond this course.
+      links:
+        - title: Block cipher mode of operation
+          url: https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
+          adds: Why the same key must never encrypt two blocks the same way
+          minutes: 15
+          level: advanced
+    - id: n-one-time-pad
+      topic: One-time pads in practice
+      why: They are perfectly secure but impractical, so the course only mentions them.
+      links:
+        - title: One-time pad
+          url: https://en.wikipedia.org/wiki/One-time_pad
+          adds: The history of one-time pads and why reuse is fatal
+          minutes: 10
+          level: intro
+exercises:
+  - id: e-shared-key-recall
+    type: mc
+    concepts: [c-shared-key]
+    pool: recall
+    prompt: Alice encrypts a message to Bob with a symmetric cipher. What does Bob use to decrypt it?
+    options:
+      - { id: e-shared-key-recall-same, text: The same key Alice used }
+      - { id: e-shared-key-recall-public, text: Alice's public key }
+      - { id: e-shared-key-recall-none, text: No key; he reverses the algorithm }
+    correct: e-shared-key-recall-same
+    explanation: Symmetric means one key works in both directions, so Bob needs a copy of Alice's key.
+    anchor: a-one-key
+  - id: e-shared-key-review
+    type: fill
+    concepts: [c-shared-key]
+    pool: review
+    prompt: In a symmetric cipher, the key that decrypts is the ___ key that encrypted.
+    accepted: [same]
+    explanation: Symmetric ciphers use one key for both encrypting and decrypting.
+    anchor: a-one-key
+  - id: e-kerckhoffs-recall
+    type: short
+    concepts: [c-kerckhoffs]
+    pool: recall
+    prompt: Why do cryptographers publish their algorithms instead of keeping them secret?
+    sample: Public scrutiny finds flaws early, and security should depend only on the secret key.
+    checklist:
+      - Public study finds weaknesses
+      - Security should rest on the key alone
+    explanation: Kerckhoffs' principle says a cipher must stay secure even when everything but the key is known.
+    anchor: a-kerckhoffs
+  - id: e-kerckhoffs-review
+    type: scenario
+    concepts: [c-kerckhoffs]
+    pool: review
+    scenario: >-
+      A startup advertises "unbreakable encryption" built on its own secret
+      algorithm, which no outsider has been allowed to see.
+    prompt: What should a careful buyer conclude?
+    options:
+      - id: e-kerckhoffs-review-doubt
+        text: The claim is untested; prefer a public, well-studied cipher
+      - id: e-kerckhoffs-review-safer
+        text: It is safer, because attackers cannot study it
+        misconception: m-secret-algorithm
+      - id: e-kerckhoffs-review-same
+        text: It is equally safe, as long as the key is long
+    correct: e-kerckhoffs-review-doubt
+    explanation: Secrecy of the method gives no lasting protection, and an unseen algorithm has had no expert scrutiny.
+    anchor: a-kerckhoffs
+  - id: e-key-length-recall
+    type: fill
+    concepts: [c-key-length]
+    pool: recall
+    prompt: Adding one bit to a key ___ the number of possible keys.
+    accepted: [doubles, double, multiplies by two]
+    explanation: An $n$-bit key has $2^n$ values, so one more bit gives $2^{n+1}$, twice as many.
+    anchor: a-key-length
+  - id: e-key-length-review
+    type: mc
+    concepts: [c-key-length]
+    pool: review
+    prompt: How many more keys does a 129-bit key have than a 128-bit key?
+    options:
+      - { id: e-key-length-review-twice, text: Twice as many }
+      - { id: e-key-length-review-one, text: One more }
+      - { id: e-key-length-review-128, text: 128 times as many }
+    correct: e-key-length-review-twice
+    explanation: '$2^{129} = 2 \times 2^{128}$: each extra bit doubles the count.'
+    anchor: a-key-length
+  - id: x-secrets-key
+    type: mc
+    concepts: [c-shared-key]
+    pool: checkpoint
+    prompt: Two offices share an AES key. What must an office have to read the other's encrypted files?
+    options:
+      - { id: x-secrets-key-copy, text: A copy of the shared key }
+      - { id: x-secrets-key-source, text: The AES source code }
+      - { id: x-secrets-key-hash, text: A hash of each file }
+    correct: x-secrets-key-copy
+    explanation: AES is symmetric and public, so the shared key is all that is needed, and all that must stay secret.
+    anchor: a-one-key
+  - id: x-secrets-bits
+    type: fill
+    concepts: [c-key-length]
+    pool: checkpoint
+    prompt: A 10-bit key has ___ possible values.
+    accepted: ["1024"]
+    explanation: '$2^{10} = 1024$, few enough for a computer to try instantly.'
+    anchor: a-key-length
+  - id: x-secrets-vendor
+    type: scenario
+    concepts: [c-kerckhoffs, c-key-length]
+    pool: checkpoint
+    scenario: >-
+      Two products both use 256-bit keys. One uses AES; the other uses a
+      secret in-house algorithm.
+    prompt: Which is the safer choice?
+    options:
+      - { id: x-secrets-vendor-aes, text: The AES product }
+      - id: x-secrets-vendor-secret
+        text: The in-house product
+        misconception: m-secret-algorithm
+      - { id: x-secrets-vendor-equal, text: They are equal; key length is all that counts }
+    correct: x-secrets-vendor-aes
+    explanation: Key length sets a floor, but only years of public study rule out shortcuts around it.
+    anchor: a-kerckhoffs

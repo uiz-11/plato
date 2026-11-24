@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:fixtures": "PLATO_CONTENT_DIR=e2e/fixtures/content next dev",
     "build": "next build && tsx scripts/prepare-standalone.ts",
     "start": "node .next/standalone/server.js",
     "lint": "eslint",

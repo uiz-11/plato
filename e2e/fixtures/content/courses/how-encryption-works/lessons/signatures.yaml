@@ -1,0 +1,205 @@
+id: signatures
+title: Proving who sent it
+keyQuestions: [q3, q4]
+whyThisMatters: >-
+  Signatures are how a website proves its identity, and they are also what a
+  large quantum computer would break first.
+concepts:
+  - id: c-key-pair
+    statement: A key pair has a public key anyone may use and a private key only its owner holds.
+    recallPrompts:
+      - prompt: Which half of a key pair can you safely publish?
+        answer: The public key.
+  - id: c-signature
+    statement: A signature is made with the private key and checked with the public key, proving who signed and that nothing has changed.
+    recallPrompts:
+      - prompt: What two things does a valid signature prove?
+        answer: Who signed it, and that the document has not changed since.
+      - prompt: What does a browser check to trust a website's public key?
+        answer: A certificate authority's signature on the site's certificate.
+  - id: c-quantum
+    statement: A large quantum computer would break RSA and Diffie–Hellman, so NIST published post-quantum standards in 2024.
+    recallPrompts:
+      - prompt: Which systems would a large quantum computer running Shor's algorithm break?
+        answer: RSA and Diffie–Hellman, including their elliptic-curve versions.
+guesses:
+  - id: g-sign-key
+    prompt: To sign a document digitally, which key do you use?
+    options:
+      - { id: g-sign-key-private, text: Your private key }
+      - { id: g-sign-key-public, text: Your public key }
+      - { id: g-sign-key-theirs, text: "The recipient's public key" }
+    correct: g-sign-key-private
+    why: >-
+      Only you hold your private key, so only you can sign. Your public key is
+      what others use to check the signature, and the recipient's key would
+      prove nothing about you.
+  - id: g-quantum
+    prompt: Why did NIST publish new encryption standards in 2024?
+    options:
+      - { id: g-quantum-future, text: To resist future quantum computers }
+      - { id: g-quantum-aes, text: Because AES had been broken }
+      - { id: g-quantum-speed, text: To make encryption faster on phones }
+    correct: g-quantum-future
+    why: >-
+      The new standards rest on problems no known quantum algorithm solves.
+      AES is still considered safe, and speed was not the goal.
+misconceptions:
+  - id: m-sign-secret
+    belief: Signing a message keeps it secret.
+    correction: >-
+      Anyone with the public key can check a signature, and the document
+      itself stays readable. Keeping it secret needs encryption as well.
+beyond:
+  simplified:
+    - id: s-rsa
+      text: >-
+        Real RSA signatures pad the hash in a careful, randomized way;
+        applying the key to a bare hash is insecure.
+      links:
+        - title: RSA (cryptosystem)
+          url: https://en.wikipedia.org/wiki/RSA_(cryptosystem)
+          adds: How RSA keys are generated and why padding matters
+          minutes: 25
+          level: advanced
+  notCovered:
+    - id: n-pqc-maths
+      topic: How post-quantum algorithms work
+      why: Lattice-based cryptography needs mathematics well beyond this course.
+      links:
+        - title: Post-Quantum Cryptography project
+          url: https://csrc.nist.gov/projects/post-quantum-cryptography
+          adds: The standards, their timeline and migration guidance
+          minutes: 15
+          level: intermediate
+          recommended: q4
+        - title: "Shor's algorithm"
+          url: https://en.wikipedia.org/wiki/Shor%27s_algorithm
+          adds: Why quantum computers can factor quickly
+          minutes: 20
+          level: advanced
+exercises:
+  - id: e-key-pair-recall
+    type: mc
+    concepts: [c-key-pair]
+    pool: recall
+    prompt: Which key can you post on your website?
+    options:
+      - { id: e-key-pair-recall-public, text: Your public key }
+      - { id: e-key-pair-recall-private, text: Your private key }
+      - { id: e-key-pair-recall-both, text: "Both, as long as the site uses HTTPS" }
+    correct: e-key-pair-recall-public
+    explanation: The public key is meant to be shared; the private key must never leave you.
+    anchor: a-key-pairs
+  - id: e-key-pair-review
+    type: fill
+    concepts: [c-key-pair]
+    pool: review
+    prompt: In a key pair, the key you must never share is the ___ key.
+    accepted: [private]
+    explanation: The private key is what lets only you sign and decrypt.
+    anchor: a-key-pairs
+  - id: e-signature-recall
+    type: spot
+    concepts: [c-signature]
+    pool: recall
+    prompt: Which sentence about signatures is wrong, and how should it read?
+    sentences:
+      - { id: e-signature-recall-sign, text: Alice signs with her private key. }
+      - { id: e-signature-recall-check, text: "Bob checks the signature with Alice's public key." }
+      - id: e-signature-recall-change
+        text: If the document changes, the signature still verifies.
+    faulty: e-signature-recall-change
+    fixes:
+      - id: e-signature-recall-fails
+        text: If the document changes, the signature no longer verifies.
+      - id: e-signature-recall-needs
+        text: "If the document changes, Bob needs Alice's private key to check it."
+    correctFix: e-signature-recall-fails
+    explanation: The signature covers the document's hash, and any change changes the hash.
+    anchor: a-signing
+  - id: e-signature-review
+    type: scenario
+    concepts: [c-signature]
+    pool: review
+    scenario: >-
+      Your browser connects to your bank. The server sends a certificate
+      signed by a certificate authority your browser trusts, and the signature
+      checks out.
+    prompt: What does the valid signature tell you?
+    options:
+      - id: e-signature-review-vouch
+        text: "The authority vouches that this public key belongs to the bank's domain"
+      - { id: e-signature-review-bugs, text: The bank's website has no security bugs }
+      - id: e-signature-review-hidden
+        text: Nobody can see the certificate's contents
+        misconception: m-sign-secret
+    correct: e-signature-review-vouch
+    explanation: A certificate signature ties a public key to a domain. It says nothing about the site's code, and the certificate is public.
+    anchor: a-signing
+  - id: e-quantum-recall
+    type: mc
+    concepts: [c-quantum]
+    pool: recall
+    prompt: Which would a large quantum computer running Shor's algorithm break?
+    options:
+      - { id: e-quantum-recall-rsa, text: RSA and Diffie–Hellman }
+      - { id: e-quantum-recall-all, text: "Every cipher, including AES with 256-bit keys" }
+      - { id: e-quantum-recall-hash, text: Only hash functions }
+    correct: e-quantum-recall-rsa
+    explanation: Shor's algorithm factors and solves discrete logarithms; symmetric ciphers only lose about half their effective key length.
+    anchor: a-quantum
+  - id: e-quantum-review
+    type: mc
+    concepts: [c-quantum]
+    pool: review
+    prompt: What did NIST publish in August 2024?
+    options:
+      - { id: e-quantum-review-pqc, text: Its first finalized post-quantum encryption standards }
+      - { id: e-quantum-review-proof, text: A proof that large quantum computers cannot be built }
+      - { id: e-quantum-review-sha, text: A replacement for SHA-256 }
+    correct: e-quantum-review-pqc
+    explanation: The three standards rest on problems no known quantum algorithm solves efficiently.
+    anchor: a-quantum
+  - id: x-public-spot
+    type: spot
+    concepts: [c-key-pair, c-signature]
+    pool: checkpoint
+    prompt: Which sentence is wrong, and how should it read?
+    sentences:
+      - { id: x-public-spot-publish, text: You can publish your public key anywhere. }
+      - { id: x-public-spot-factor, text: 'Factoring an RSA modulus $n$ would reveal the private key.' }
+      - id: x-public-spot-secret
+        text: A signed email cannot be read by anyone but the recipient.
+    faulty: x-public-spot-secret
+    fixes:
+      - id: x-public-spot-readable
+        text: A signed email can be read by anyone unless it is also encrypted.
+      - id: x-public-spot-private
+        text: A signed email can be read only with the sender's private key.
+    correctFix: x-public-spot-readable
+    explanation: Signing proves origin and integrity; secrecy needs encryption.
+    anchor: a-signing
+  - id: x-public-quantum
+    type: short
+    concepts: [c-quantum]
+    pool: checkpoint
+    prompt: Why switch to post-quantum key exchange now, before large quantum computers exist?
+    sample: Attackers can record encrypted traffic today and decrypt it once a large quantum computer exists.
+    checklist:
+      - Traffic can be recorded now
+      - It could be decrypted later
+    explanation: Data that must stay secret for years is exposed by any future break of today's key exchange.
+    anchor: a-quantum
+  - id: x-public-padlock
+    type: mc
+    concepts: [c-signature, c-diffie-hellman]
+    pool: checkpoint
+    prompt: In TLS 1.3, what stops an attacker in the middle from running their own key exchange with your browser?
+    options:
+      - { id: x-public-padlock-sign, text: The server signs the handshake with its certificate's private key }
+      - { id: x-public-padlock-prime, text: The prime $p$ is kept secret }
+      - { id: x-public-padlock-aes, text: The handshake is sent with AES before any key exists }
+    correct: x-public-padlock-sign
+    explanation: The attacker cannot produce the server's signature, so a swapped Diffie–Hellman value is detected.
+    anchor: a-signing
