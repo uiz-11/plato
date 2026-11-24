@@ -416,7 +416,7 @@ EASE_START = 2.5; EASE_MIN = 1.3; EASE_MAX = 2.8; MAX_INTERVAL_DAYS = 180; DAILY
 
 **On a review event** on a day after `last_event_day`, with `elapsed = today − last_event_day`:
 - `remembered`: `interval = min(MAX_INTERVAL_DAYS, max(interval + 1, round(max(interval, elapsed) × ease)))`; `ease += 0.10`
-- `partly`: `interval = max(1, round(interval × 1.2))`; `ease −= 0.15`
+- `partly`: `interval = min(MAX_INTERVAL_DAYS, max(1, round(interval × 1.2)))`; `ease −= 0.15`
 - `forgot`: `interval = 1`; `ease −= 0.20`
 - Then clamp the ease, and set `due_day = today + interval`, `last_event_day = today`, `later_day_reviews += 1` and `last_grade = grade`.
 
