@@ -21,6 +21,7 @@ import {
   readMinutes,
   sourceNumbers,
 } from "./derive"
+import { clearMemo, memo } from "./memo"
 import {
   Course,
   Lesson,
@@ -67,6 +68,8 @@ export type LoadedLesson = {
 
 export type LoadedCourse = {
   id: string
+  /** The course folder, as an absolute path. Figures load from its `assets/`. */
+  dir: string
   course: Course
   /** Every lesson, in syllabus order. */
   lessons: LoadedLesson[]
@@ -96,21 +99,9 @@ export function contentRoot(
   return dir ? resolve(dir) : join(process.cwd(), "content")
 }
 
-// ---------------------------------------------------------------------------
-// Memoization (production only)
-
-const g = globalThis as { __platoContentCache?: Map<string, unknown> }
-
-function memo<T>(key: string, load: () => T): T {
-  if (process.env.NODE_ENV !== "production") return load()
-  const cache = (g.__platoContentCache ??= new Map())
-  if (!cache.has(key)) cache.set(key, load())
-  return cache.get(key) as T
-}
-
 /** Drops memoized content. For tests. */
 export function clearContentCache(): void {
-  g.__platoContentCache?.clear()
+  clearMemo()
   warnedDrafts.clear()
 }
 
@@ -277,6 +268,7 @@ export function loadCourseDir(
   const lengthSeconds = courseLengthSeconds(course, lessons)
   return {
     id: course.id,
+    dir: resolve(dir),
     course,
     lessons,
     lessonsById: new Map(lessons.map((l) => [l.lesson.id, l])),
