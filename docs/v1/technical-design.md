@@ -102,7 +102,7 @@ ESLint `no-restricted-imports` enforces the boundaries. `lib/engine` imports not
 | `unified`, `remark-parse`, `remark-gfm`, `remark-math`, `remark-directive`, `remark-rehype`, `rehype-katex`, `katex`, `hast-util-to-jsx-runtime` | Brief and inline Markdown rendering |
 | `canvas-confetti` | The confetti bursts (WF-E7, WF-E8, WF-G3) |
 | `vitest`, `@playwright/test`, `@axe-core/playwright`, `tsx` (dev) | Tests and scripts |
-| shadcn components: `sidebar`, `card`, `badge`, `button`, `checkbox`, `radio-group`, `dropdown-menu`, `sheet`, `sonner`, `textarea`, `input`, `popover`, `separator`, `tooltip`, `skeleton` | All UI, per the wireframes' build note ("where a wireframe and shadcn differ, shadcn wins"). base-nova components compose with `render`, not `asChild`. |
+| shadcn components: `sidebar`, `card`, `badge`, `button`, `checkbox`, `radio-group`, `dropdown-menu`, `sheet`, `sonner`, `textarea`, `input`, `popover`, `separator`, `tooltip`, `skeleton`, `progress` | All UI, per the wireframes' build note ("where a wireframe and shadcn differ, shadcn wins"). base-nova components compose with `render`, not `asChild`. |
 
 `@types/node` moves to 24 to match the runtime.
 
@@ -566,6 +566,7 @@ app/(shell)/layout.tsx                          sidebar (desktop) / bottom tabs 
 app/(shell)/page.tsx                            /                          Today (WF-A1, WF-A2)
 app/(shell)/new/page.tsx                        /new                       New request (WF-B1)
 app/(shell)/library/page.tsx                    /library                   Library (WF-H1)
+app/(shell)/[...missing]/page.tsx               notFound(): unknown URLs 404 inside the shell (not-found.tsx)
 app/(shell)/courses/[courseId]/layout.tsx       course header and CourseTabs (WF-C1 to WF-C3)
 app/(shell)/courses/[courseId]/page.tsx         redirect → ./syllabus
 app/(shell)/courses/[courseId]/syllabus/page.tsx
@@ -763,6 +764,7 @@ All screens use stock shadcn components and the default type scale (text-sm body
   - Course cards show `coverLabel` on a neutral tile.
 - **Phone (WF-I).**
   - A single column, with bottom tabs for Today and Library, and a "+" in the header for New request.
+  - The header shows the "Plato" wordmark, not the page title as in WF-I1. Each page keeps its own heading, so the layout needs nothing from the page.
   - Submit, confidence and **Next** buttons are pinned at the bottom, with tap targets of at least 44 px, 8 px apart.
 - **Accessibility (WF-J).**
   - Options are a `RadioGroup` (arrow keys). Tab then moves to the confidence buttons.
