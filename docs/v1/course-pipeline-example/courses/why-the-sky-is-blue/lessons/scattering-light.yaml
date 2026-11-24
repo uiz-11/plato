@@ -1,0 +1,300 @@
+id: scattering-light
+title: How air scatters sunlight
+keyQuestions: [q1, q2, q3]
+whyThisMatters: |-
+  One idea, that small particles scatter short wavelengths far more than long
+  ones, explains the blue sky, red sunsets and white clouds.
+concepts:
+  - id: c-white-light
+    statement: Sunlight is a mixture of every visible wavelength, which together look white.
+    recallPrompts:
+      - prompt: What is sunlight made of, as far as colour goes?
+        answer: A mixture of all the visible wavelengths, from violet to red, which together look white.
+  - id: c-rayleigh
+    statement: |-
+      Air molecules are far smaller than a wavelength of light, so they scatter
+      short wavelengths much more strongly: halving the wavelength makes the
+      scattering 16 times stronger.
+    recallPrompts:
+      - prompt: How does Rayleigh scattering depend on wavelength?
+        answer: Its strength goes as $1/\lambda^4$, so shorter wavelengths scatter far more.
+      - prompt: Why does the whole sky glow, and not only the direction of the Sun?
+        answer: Scattered blue light reaches your eye from every direction in the sky.
+  - id: c-not-violet
+    statement: The sky looks blue rather than violet because sunlight contains less violet and our eyes are less sensitive to it.
+    recallPrompts:
+      - prompt: Violet scatters even more than blue. Why is the sky not violet?
+        answer: Sunlight has less violet than blue, and our eyes respond less to violet, so the mix looks sky blue.
+  - id: c-sunset
+    statement: When the Sun is low its light crosses far more air, so most blue is scattered out of the beam and the reds and oranges remain.
+    recallPrompts:
+      - prompt: Why is the setting Sun red?
+        answer: Its light crosses so much air that the blue is scattered away before it reaches you, leaving red and orange.
+  - id: c-mie
+    statement: Cloud droplets are much larger than a wavelength, so they scatter all colours about equally, and clouds look white or grey.
+    recallPrompts:
+      - prompt: Why are clouds white?
+        answer: Their droplets are large compared with a wavelength and scatter all colours about equally.
+guesses:
+  - id: g-ratio
+    prompt: Blue light is about 450 nm and red about 700 nm. Roughly how much more strongly do air molecules scatter the blue?
+    options:
+      - { id: g-ratio-1-5, text: About 1.5 times }
+      - { id: g-ratio-6, text: About 6 times }
+      - { id: g-ratio-100, text: About 100 times }
+    correct: g-ratio-6
+    why: |-
+      The ratio of wavelengths is about 1.56, and scattering goes as the
+      fourth power, so $1.56^4 \approx 5.9$. Only 1.5 times would ignore the
+      fourth power; 100 times would need a far larger wavelength gap.
+  - id: g-sunset
+    prompt: At sunset, about how much more air does sunlight cross than when the Sun is overhead?
+    options:
+      - { id: g-sunset-same, text: About the same amount }
+      - { id: g-sunset-twice, text: About twice as much }
+      - { id: g-sunset-dozens, text: Dozens of times as much }
+    correct: g-sunset-dozens
+    why: |-
+      At the horizon the path through the atmosphere is close to 40 times
+      longer than straight up, because the light skims along the curved
+      layer of air instead of cutting through it.
+misconceptions:
+  - id: m-ocean
+    belief: The sky is blue because it reflects the colour of the ocean.
+    correction: |-
+      The sky is just as blue over deserts and far inland. Its colour comes
+      from air scattering sunlight, and the sea looks blue partly because it
+      reflects the sky.
+  - id: m-violet-sky
+    belief: If shorter wavelengths scatter more, the sky should look violet.
+    correction: |-
+      Sunlight contains less violet than blue, and our eyes are less
+      sensitive to violet, so the scattered mix looks pale blue.
+beyond:
+  simplified:
+    - id: s-ripples
+      text: |-
+        The ripple analogy treats light as a simple wave meeting a small
+        obstacle. It breaks down for the real mechanism: the light's electric
+        field makes the electrons in each molecule oscillate, and they
+        re-radiate in all directions.
+      analogy: an-ripples
+      links:
+        - title: Rayleigh scattering
+          url: https://en.wikipedia.org/wiki/Rayleigh_scattering
+          adds: The derivation of the fourth-power law and where it applies
+          minutes: 20
+          level: intermediate
+          recommended: q1
+        - title: Why is the sky blue?
+          url: https://spaceplace.nasa.gov/blue-sky/en/
+          adds: A short illustrated version for a first explanation
+          minutes: 5
+          level: intro
+  notCovered:
+    - id: n-polarization
+      topic: Polarization of skylight
+      why: It needs more about the wave nature of light than this course covers.
+      links:
+        - title: Diffuse sky radiation
+          url: https://en.wikipedia.org/wiki/Diffuse_sky_radiation
+          adds: How skylight is polarized and how its colour varies across the sky
+          minutes: 15
+          level: intermediate
+exercises:
+  - id: e-white-recall
+    type: mc
+    concepts: [c-white-light]
+    pool: recall
+    prompt: What does sunlight look like before the atmosphere scatters any of it?
+    options:
+      - { id: e-white-recall-white, text: "White: a mixture of every visible wavelength" }
+      - id: e-white-recall-blue
+        text: "Blue: the Sun gives off mostly blue light"
+      - { id: e-white-recall-yellow, text: "Yellow: the Sun gives off only yellow light" }
+    correct: e-white-recall-white
+    explanation: Sunlight contains every visible wavelength, and together they look white.
+    anchor: a-white-light
+  - id: e-white-review
+    type: fill
+    concepts: [c-white-light]
+    pool: review
+    prompt: A mixture of every visible wavelength of light looks ___.
+    accepted: [white]
+    explanation: All the colours together look white, which is why the Sun seen from space looks white.
+    anchor: a-white-light
+  - id: e-rayleigh-recall
+    type: scenario
+    concepts: [c-rayleigh]
+    pool: recall
+    scenario: |-
+      You stand in a field on a clear day and look at a patch of sky well
+      away from the Sun.
+    prompt: Where does the blue light you see come from?
+    options:
+      - { id: e-rayleigh-recall-scattered, text: Sunlight scattered towards you by air molecules }
+      - id: e-rayleigh-recall-sea
+        text: Light reflected from the oceans
+        misconception: m-ocean
+      - { id: e-rayleigh-recall-glow, text: Air molecules glowing blue on their own }
+    correct: e-rayleigh-recall-scattered
+    explanation: Air molecules scatter short wavelengths out of the sunbeam in every direction, including towards you.
+    anchor: a-rayleigh
+  - id: e-rayleigh-review
+    type: spot
+    concepts: [c-rayleigh]
+    pool: review
+    prompt: Which sentence about Rayleigh scattering is wrong, and how should it read?
+    sentences:
+      - { id: e-rayleigh-review-small, text: It happens when particles are much smaller than the wavelength. }
+      - { id: e-rayleigh-review-air, text: Nitrogen and oxygen molecules cause it in air. }
+      - id: e-rayleigh-review-long
+        text: It scatters long wavelengths more strongly than short ones.
+    faulty: e-rayleigh-review-long
+    fixes:
+      - id: e-rayleigh-review-short
+        text: It scatters short wavelengths more strongly than long ones.
+      - id: e-rayleigh-review-equal
+        text: It scatters all wavelengths equally.
+    correctFix: e-rayleigh-review-short
+    explanation: Rayleigh scattering goes as $1/\lambda^4$, so short wavelengths scatter more.
+    anchor: a-rayleigh
+  - id: e-violet-recall
+    type: short
+    concepts: [c-not-violet]
+    pool: recall
+    prompt: Violet light scatters even more than blue. Explain why the sky still looks blue.
+    sample: Sunlight contains less violet than blue, and our eyes are less sensitive to violet.
+    checklist:
+      - Sunlight has less violet than blue
+      - Our eyes respond less to violet
+    explanation: Both the light available and the eye's response favour blue.
+    anchor: a-not-violet
+  - id: e-violet-review
+    type: mc
+    concepts: [c-not-violet]
+    pool: review
+    prompt: Which is one reason the sky looks blue rather than violet?
+    options:
+      - { id: e-violet-review-eyes, text: Our eyes are less sensitive to violet than to blue }
+      - id: e-violet-review-scatter
+        text: Violet scatters less than blue
+        misconception: m-violet-sky
+      - { id: e-violet-review-ocean, text: The ocean absorbs violet light }
+    correct: e-violet-review-eyes
+    explanation: Violet scatters more, not less, but there is less of it in sunlight and our eyes respond weakly to it.
+    anchor: a-not-violet
+  - id: e-sunset-recall
+    type: mc
+    concepts: [c-sunset]
+    pool: recall
+    prompt: Why does the setting Sun look red?
+    options:
+      - { id: e-sunset-recall-path, text: Its light crosses so much air that most blue is scattered out first }
+      - { id: e-sunset-recall-cooler, text: The Sun cools down in the evening }
+      - { id: e-sunset-recall-ocean, text: Light reflected from the sea turns red at low angles }
+    correct: e-sunset-recall-path
+    explanation: The long path through the air removes most of the blue, leaving reds and oranges.
+    anchor: a-sunset
+  - id: e-sunset-review
+    type: fill
+    concepts: [c-sunset]
+    pool: review
+    prompt: At sunset, sunlight crosses much more ___ before it reaches you, so its blue is scattered away.
+    accepted: [air, atmosphere]
+    explanation: The low Sun's light skims through dozens of times more atmosphere than at noon.
+    anchor: a-sunset
+  - id: e-mie-recall
+    type: scenario
+    concepts: [c-mie]
+    pool: recall
+    scenario: A white cloud drifts across a deep blue sky.
+    prompt: Why is the cloud white?
+    options:
+      - { id: e-mie-recall-large, text: Its droplets are large and scatter all colours about equally }
+      - { id: e-mie-recall-small, text: Its droplets are small and scatter mostly blue }
+      - { id: e-mie-recall-ice, text: Water absorbs every colour except white }
+    correct: e-mie-recall-large
+    explanation: Droplets much larger than a wavelength scatter all colours about equally, so the scattered light stays white.
+    anchor: a-clouds
+  - id: e-mie-review
+    type: spot
+    concepts: [c-mie]
+    pool: review
+    prompt: Which sentence about clouds is wrong, and how should it read?
+    sentences:
+      - { id: e-mie-review-size, text: Cloud droplets are much larger than a wavelength of light. }
+      - id: e-mie-review-blue
+        text: Cloud droplets scatter blue light much more than red.
+      - { id: e-mie-review-grey, text: Thick clouds look grey because little light gets through. }
+    faulty: e-mie-review-blue
+    fixes:
+      - id: e-mie-review-equal
+        text: Cloud droplets scatter all colours about equally.
+      - id: e-mie-review-red
+        text: Cloud droplets scatter red light much more than blue.
+    correctFix: e-mie-review-equal
+    explanation: Large droplets scatter all colours about equally; that is why clouds are white.
+    anchor: a-clouds
+  - id: x-sky-ratio
+    type: mc
+    concepts: [c-rayleigh]
+    pool: checkpoint
+    prompt: If one wavelength is half another, how many times more strongly do air molecules scatter it?
+    options:
+      - { id: x-sky-ratio-2, text: "2" }
+      - { id: x-sky-ratio-4, text: "4" }
+      - { id: x-sky-ratio-16, text: "16" }
+    correct: x-sky-ratio-16
+    explanation: Scattering goes as $1/\lambda^4$, and $2^4 = 16$.
+    anchor: a-rayleigh
+  - id: x-sky-noon
+    type: scenario
+    concepts: [c-rayleigh]
+    pool: checkpoint
+    scenario: An astronaut on the Moon, which has no air, looks up at the Sun.
+    prompt: What colour is the sky around the Sun?
+    options:
+      - { id: x-sky-noon-black, text: Black }
+      - id: x-sky-noon-blue
+        text: Blue
+      - { id: x-sky-noon-red, text: Red }
+    correct: x-sky-noon-black
+    explanation: With no air to scatter sunlight, no light reaches the eye from the rest of the sky.
+    anchor: a-rayleigh
+  - id: x-sky-haze
+    type: fill
+    concepts: [c-mie]
+    pool: checkpoint
+    prompt: Scattering by particles much larger than the wavelength, such as cloud droplets, is called ___ scattering.
+    accepted: [Mie]
+    explanation: Mie scattering treats spheres of any size; for large droplets it scatters all colours about equally.
+    anchor: a-clouds
+  - id: x-sky-violet
+    type: mc
+    concepts: [c-not-violet, c-white-light]
+    pool: checkpoint
+    prompt: Which pair of facts together explains why the sky is blue and not violet?
+    options:
+      - id: x-sky-violet-both
+        text: Sunlight has less violet than blue, and our eyes respond less to violet
+      - id: x-sky-violet-scatter
+        text: Violet scatters less than blue, and the Sun gives off no violet
+        misconception: m-violet-sky
+      - id: x-sky-violet-ocean
+        text: The ocean absorbs violet, and the sky reflects the ocean
+    correct: x-sky-violet-both
+    explanation: Violet does scatter more, but less of it arrives and our eyes respond weakly to it.
+    anchor: a-not-violet
+  - id: x-sky-explain
+    type: short
+    concepts: [c-rayleigh, c-sunset]
+    pool: checkpoint
+    prompt: In one or two sentences, explain why the same air makes the sky blue at noon and red at sunset.
+    sample: Air scatters blue most. At noon that scattered blue fills the sky; at sunset the long path removes the blue, leaving red.
+    checklist:
+      - Air scatters short wavelengths most
+      - At noon we see the scattered blue
+      - At sunset the long path strips the blue from the direct light
+    explanation: The same scattering adds blue to the sky and removes it from the direct beam.
+    anchor: a-sunset

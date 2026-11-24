@@ -98,6 +98,15 @@ describe("the fixture courses", () => {
   })
 })
 
+describe("the pipeline doc's worked example (T08)", () => {
+  it("passes structure validation with no warnings", () => {
+    const result = validateCourse("why-the-sky-is-blue", {
+      root: join(process.cwd(), "docs/v1/course-pipeline-example"),
+    })
+    expect(result.findings).toEqual([])
+  })
+})
+
 type Mutation = [
   name: string,
   rule: Rule,
@@ -717,6 +726,36 @@ const MUTATIONS: Mutation[] = [
     "the health-legal-financial-safety policy needs a policyNote",
   ],
 
+  // Plain-text fields (found in the schema trial, T08)
+  [
+    "a concept statement has math",
+    "markdown",
+    (e) =>
+      e.yaml(sym, (d) => {
+        d.concepts[0].statement = "Scattering goes as $1/\\lambda^4$."
+      }),
+    'plain text, not Markdown: the math "$1/\\\\lambda^4$"',
+  ],
+  [
+    "a short-answer checklist item has a citation",
+    "markdown",
+    (e) =>
+      e.yaml(sym, (d) => {
+        const short = d.exercises.find((x: Data) => x.type === "short")
+        short.checklist[0] += " :cite[src-x]"
+      }),
+    'plain text, not Markdown: the directive ":cite[…]"',
+  ],
+  [
+    "a key question has a code span",
+    "markdown",
+    (e) =>
+      e.yaml(course, (d) => {
+        d.keyQuestions[0].text = "What does `AES` do?"
+      }),
+    'plain text, not Markdown: the code span "`AES`"',
+  ],
+
   // Copyright
   [
     "a blockquote is too long",
@@ -812,6 +851,56 @@ describe("structure checks: each mutation of the fixture fails", () => {
       (f) => f.file
     )
     expect(files).toEqual([`courses/${MAIN}/${sym}`, `courses/${MAIN}/${hash}`])
+  })
+
+  it("allows prices in plain text, and backticks in source titles", () => {
+    const root = copyFixtures()
+    const e = editor(root, MAIN)
+    e.yaml(sym, (d) => {
+      d.concepts[0].statement =
+        "A key costs $5 to $10 to break, or $5-$10, not $1 000."
+    })
+    e.yaml(course, (d) => {
+      d.sources[0].title = "The `fetch()` method"
+    })
+    expect(errors(validateCourse(MAIN, { root }).findings)).toEqual([])
+  })
+
+  it.each([
+    ["simple math", "the $n$th term", 'the math "$n$"'],
+    ["spaced math", "it is $n + 1$ here", 'the math "$n + 1$"'],
+    ["an escaped dollar", "it costs \\$5", 'the escaped dollar "\\$"'],
+  ])("rejects %s in plain text", (_name, value, message) => {
+    const root = copyFixtures()
+    editor(root, MAIN).yaml(sym, (d) => {
+      d.concepts[0].statement = value
+    })
+    expect(errors(validateCourse(MAIN, { root }).findings)).toContainEqual(
+      expect.objectContaining({
+        rule: "markdown",
+        path: ["concepts", 0, "statement"],
+        message: expect.stringContaining(message),
+      })
+    )
+  })
+
+  it("checks every source field and the cover label", () => {
+    const root = copyFixtures()
+    editor(root, MAIN).yaml(course, (d) => {
+      d.coverLabel = "`AES`"
+      d.sources[0].group = "Group :cite[x]"
+      d.sources[0].publisher = "Pub $x$"
+    })
+    const paths = errors(validateCourse(MAIN, { root }).findings)
+      .filter((f) => f.rule === "markdown")
+      .map((f) => f.path.join("."))
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "coverLabel",
+        "sources.0.group",
+        "sources.0.publisher",
+      ])
+    )
   })
 
   it("exempts analogy blocks from citations", () => {

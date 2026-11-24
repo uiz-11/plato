@@ -1,0 +1,55 @@
+# Worked example for the course pipeline (docs/v1/course-pipeline.md),
+# written in the schema trial (T08). A draft: it is not in any manifest.
+schemaVersion: 1
+id: why-the-sky-is-blue
+title: Why the sky is blue
+coverLabel: Blue sky
+kind: mini
+asOf: "2026-11"
+outOfScope: >-
+  Rainbows, haloes and other optical effects, the skies of other planets, and
+  the physics of how light and molecules interact.
+policies: [narrow]
+keyQuestions:
+  - id: q1
+    text: Why is the daytime sky blue rather than white or violet?
+  - id: q2
+    text: Why do sunsets turn red and orange?
+  - id: q3
+    text: Why are clouds white when the sky around them is blue?
+modules:
+  - id: scattering
+    title: Light and air
+    lessons: [scattering-light]
+    checkpoint: [x-sky-ratio, x-sky-noon, x-sky-haze, x-sky-violet, x-sky-explain]
+sources:
+  - id: src-nasa-blue-sky
+    group: Science agencies
+    title: Why is the sky blue?
+    publisher: NASA Space Place
+    date: "2024"
+    url: https://spaceplace.nasa.gov/blue-sky/en/
+  - id: src-wiki-rayleigh
+    group: Reference works
+    title: Rayleigh scattering
+    publisher: Wikipedia
+    date: "2026"
+    url: https://en.wikipedia.org/wiki/Rayleigh_scattering
+  - id: src-wiki-diffuse-sky
+    group: Reference works
+    title: Diffuse sky radiation
+    publisher: Wikipedia
+    date: "2026"
+    url: https://en.wikipedia.org/wiki/Diffuse_sky_radiation
+  - id: src-wiki-mie
+    group: Reference works
+    title: Mie scattering
+    publisher: Wikipedia
+    date: "2026"
+    url: https://en.wikipedia.org/wiki/Mie_scattering
+  - id: src-wiki-air-mass
+    group: Reference works
+    title: Air mass (astronomy)
+    publisher: Wikipedia
+    date: "2026"
+    url: https://en.wikipedia.org/wiki/Air_mass_(astronomy)
