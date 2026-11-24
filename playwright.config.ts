@@ -3,6 +3,8 @@ import { join } from "node:path"
 
 import { defineConfig, devices } from "@playwright/test"
 
+import { E2E_COOKIE_SECRET, E2E_PASSCODE, STORAGE_STATE } from "./e2e/auth"
+
 const root = import.meta.dirname
 // Workers re-evaluate this file, so fix the DB path once per run and hand it
 // down through the environment.
@@ -15,13 +17,15 @@ const baseURL = `http://127.0.0.1:${port}`
 // Build first: `npm run build`.
 export default defineConfig({
   testDir: join(root, "e2e"),
+  globalSetup: join(root, "e2e/global-setup.ts"),
   globalTeardown: join(root, "e2e/global-teardown.ts"),
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  use: { baseURL, trace: "retain-on-failure" },
+  // Every spec starts unlocked (global setup); `test.use(locked)` opts out.
+  use: { baseURL, storageState: STORAGE_STATE, trace: "retain-on-failure" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     {
@@ -48,8 +52,8 @@ export default defineConfig({
       HOSTNAME: "127.0.0.1",
       PLATO_DB_PATH: process.env.PLATO_E2E_DB_PATH,
       PLATO_CONTENT_DIR: join(root, "e2e/fixtures/content"),
-      PLATO_PASSCODE: "e2e-passcode-at-least-20-chars",
-      PLATO_COOKIE_SECRET: "e2e-cookie-secret",
+      PLATO_PASSCODE: E2E_PASSCODE,
+      PLATO_COOKIE_SECRET: E2E_COOKIE_SECRET,
       PLATO_TEST_HOOKS: "1",
     },
   },
