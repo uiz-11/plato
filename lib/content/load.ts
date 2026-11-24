@@ -52,7 +52,7 @@ export class ContentError extends Error {
   }
 }
 
-function formatPath(path: (string | number)[]): string {
+export function formatPath(path: (string | number)[]): string {
   return path
     .map((p, i) => (typeof p === "number" ? `[${p}]` : i ? `.${p}` : p))
     .join("")
@@ -108,7 +108,7 @@ export function clearContentCache(): void {
 // ---------------------------------------------------------------------------
 // Files
 
-function displayPath(root: string, file: string): string {
+export function displayPath(root: string, file: string): string {
   const rel = relative(root, file)
   return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : file
 }
@@ -148,7 +148,12 @@ function parseContentYaml(text: string): unknown {
   return doc.toJS()
 }
 
-function parseWith<S extends z.ZodType>(
+/**
+ * Reads, parses and schema-checks one content file. Throws a `ContentError`
+ * naming the file (relative to `root` when inside it). Exported for the
+ * validator, which also parses the audit files (§11.3).
+ */
+export function parseContentFile<S extends z.ZodType>(
   schema: S,
   root: string,
   file: string,
@@ -184,7 +189,7 @@ function parseWith<S extends z.ZodType>(
 
 export function readPublished(root: string = contentRoot()): PublishedEntry[] {
   return memo(`published\0${root}`, () => {
-    const manifest = parseWith(
+    const manifest = parseContentFile(
       PublishedManifest,
       root,
       join(root, "published.json"),
@@ -207,7 +212,7 @@ export function readPublished(root: string = contentRoot()): PublishedEntry[] {
 
 export function readNotBuilt(root: string = contentRoot()): NotBuiltEntry[] {
   return memo(`not-built\0${root}`, () =>
-    parseWith(NotBuiltList, root, join(root, "not-built.json"), "json")
+    parseContentFile(NotBuiltList, root, join(root, "not-built.json"), "json")
   )
 }
 
@@ -225,7 +230,12 @@ export function loadCourseDir(
   root: string = resolve(dir, "../..")
 ): LoadedCourse {
   const folderId = dir.split(/[\\/]/).filter(Boolean).at(-1)!
-  const course = parseWith(Course, root, join(dir, "course.yaml"), "yaml")
+  const course = parseContentFile(
+    Course,
+    root,
+    join(dir, "course.yaml"),
+    "yaml"
+  )
   if (course.id !== folderId)
     throw new ContentError(displayPath(root, join(dir, "course.yaml")), [
       {
@@ -247,7 +257,7 @@ export function loadCourseDir(
         ])
       seen.add(lessonId)
       const yamlFile = join(dir, "lessons", `${lessonId}.yaml`)
-      const lesson = parseWith(Lesson, root, yamlFile, "yaml")
+      const lesson = parseContentFile(Lesson, root, yamlFile, "yaml")
       if (lesson.id !== lessonId)
         throw new ContentError(displayPath(root, yamlFile), [
           {

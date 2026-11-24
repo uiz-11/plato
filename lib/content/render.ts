@@ -466,6 +466,21 @@ function markBlanks(tree: MdastRoot): void {
 // ---------------------------------------------------------------------------
 // Pipeline
 
+/**
+ * The Markdown syntax tree before `remarkPlato`: CommonMark, GFM, math and
+ * directives, unchecked. The validator walks it for the rules that need the
+ * whole brief (citations per paragraph, placement, blockquote length), so it
+ * reads briefs exactly as the renderer does.
+ */
+export function parseMarkdown(markdown: string): MdastRoot {
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(remarkDirective)
+    .parse(markdown)
+}
+
 export type RenderIssue = ContentIssue & {
   /** True when the renderer removed the problem (SVG); still a validation error. */
   sanitized?: boolean
