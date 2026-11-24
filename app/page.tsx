@@ -1,4 +1,7 @@
-export default function Page() {
+import { requireLearner } from "@/lib/auth/learner"
+
+export default async function Page() {
+  await requireLearner()
   return (
     <main className="flex min-h-svh items-center justify-center p-6">
       <div className="flex max-w-md flex-col gap-2 text-center">

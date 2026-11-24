@@ -42,18 +42,30 @@ jobs:
         run: docker build -t plato:ci .
 
       - name: Docker smoke check
-        # -L follows the redirect to /unlock once auth exists (T03).
         run: |
+          # Without a passcode the server refuses to start (§8.5). Check the
+          # message too, so an unrelated crash at start does not pass.
+          code=0; out=$(timeout 30 docker run --rm --init plato:ci 2>&1) || code=$?
+          echo "$out"
+          test "$code" = 1 || { echo "expected exit 1 without PLATO_PASSCODE, got $code"; exit 1; }
+          echo "$out" | grep -q "Auth configuration is invalid"
           docker run -d --name plato -p 3000:3000 \
             -e PLATO_PASSCODE=ci-passcode-at-least-20-chars \
             -e PLATO_COOKIE_SECRET=ci-cookie-secret \
             plato:ci
           for i in $(seq 1 30); do
-            if curl -fsSL http://127.0.0.1:3000/ -o /tmp/home.html; then break; fi
+            if curl -fsS http://127.0.0.1:3000/unlock -o /tmp/unlock.html; then break; fi
             sleep 1
           done
           docker logs plato
-          grep -q "Plato" /tmp/home.html
+          grep -q "Plato" /tmp/unlock.html
+          # Locked: the proxy redirects home to /unlock.
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)
+          test "$status" = 307 || { echo "locked home answered $status"; exit 1; }
+          # The passcode as a bearer token reaches the placeholder home.
+          curl -fsS -H 'authorization: Bearer ci-passcode-at-least-20-chars' \
+            http://127.0.0.1:3000/ -o /tmp/home.html
+          grep -q "Nothing here yet." /tmp/home.html
           # Migrations ran at start (instrumentation.ts) on the volume's DB file.
           docker exec plato node -e "
             const db = require('better-sqlite3')(process.env.PLATO_DB_PATH, { readonly: true, fileMustExist: true });
