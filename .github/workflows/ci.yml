@@ -83,9 +83,12 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Content check
-        # The script arrives with T07. It runs the display check (§11.4), which
-        # needs the build and the browser, so it comes after both.
-        run: npm run content:check --if-present
+        # Manifests are append-only, published courses unchanged, and newly
+        # published courses pass `course:validate --publish` (§5.6). T21 adds
+        # the display check (§11.4), which needs the build and the browser, so
+        # this step comes after both. On a push to main the merge base would be
+        # HEAD itself, so compare with the commit main pointed to before.
+        run: npm run content:check -- ${{ github.event_name == 'push' && format('--base {0}', github.event.before) || '' }}
 
       - name: End-to-end tests
         run: npm run e2e
