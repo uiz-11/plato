@@ -135,6 +135,14 @@
     @apply font-sans;
   }
 }
+/* Display math wider than the column scrolls sideways inside its block, like
+   code, instead of spilling out of it (§11.4). The vertical padding keeps
+   tall symbols clear of the clip that overflow-x brings. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25em;
+}
 /* Plato's one focus style: full-strength ring, as thick as the stock
    components' (base-nova ring-3). */
 @utility focus-ring {

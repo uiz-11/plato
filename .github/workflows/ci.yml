@@ -82,15 +82,20 @@ jobs:
             -H 'content-type: application/json' -d '{"days":1}' \
             http://127.0.0.1:3000/api/test/clock)
           test "$status" = 404 || { echo "test clock route answered $status"; exit 1; }
+          # So is the display check's preview route (§11.4), even unlocked.
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H 'authorization: Bearer ci-passcode-at-least-20-chars' \
+            http://127.0.0.1:3000/dev/preview/how-encryption-works)
+          test "$status" = 404 || { echo "preview route answered $status"; exit 1; }
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Content check
         # Manifests are append-only, published courses unchanged, and newly
-        # published courses pass `course:validate --publish` (§5.6). T21 adds
-        # the display check (§11.4), which needs the build and the browser, so
-        # this step comes after both. On a push to main the merge base would be
+        # published courses pass `course:validate --publish` and the display
+        # check (§5.6, §11.4). The display check needs the build and the
+        # browser, so this step comes after both. On a push to main the merge base would be
         # HEAD itself, so compare with the commit main pointed to before.
         run: npm run content:check -- ${{ github.event_name == 'push' && format('--base {0}', github.event.before) || '' }}
 

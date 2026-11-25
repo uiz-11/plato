@@ -2,7 +2,9 @@
 //
 // Run in CI on every PR: the manifests are append-only, published courses are
 // unchanged since the merge base on main, and every newly published course
-// passes `course:validate --publish`.
+// passes `course:validate --publish` and the display check (§11.4). The
+// display check needs the build (`npm run build`) and a Playwright Chromium;
+// it runs only when a course is newly published.
 
 import { realpathSync } from "node:fs"
 import { isAbsolute, join, relative, resolve } from "node:path"
@@ -18,6 +20,12 @@ import {
   repoRoot,
   workTree,
 } from "./lib/content-check"
+import {
+  displayCheck,
+  formatDisplayCheck,
+  screensDir,
+  startApp,
+} from "./lib/display-check"
 import { formatFindings, summaryLine } from "./lib/findings"
 
 const USAGE =
@@ -68,11 +76,46 @@ const result = checkContent(gitTree(repo, base), workTree(repo), dir)
 let failed = result.errors.length > 0
 for (const e of result.errors) console.error(e)
 
+const valid: string[] = []
 for (const id of result.newlyPublished) {
   const v = validateCourse(id, { root: join(repo, dir), publish: true })
   if (v.findings.length) console.log(formatFindings(v.findings))
   console.log(summaryLine(id, v.findings))
-  if (!v.ok) failed = true
+  if (!v.ok) {
+    failed = true
+    console.log(`display-check ${id}: skipped until the course validates`)
+  } else valid.push(id)
+}
+
+// One server for every course; content is read from the working tree.
+if (valid.length) {
+  let app
+  try {
+    app = await startApp({ contentDir: join(repo, dir), repo })
+  } catch (error) {
+    console.error(`display-check: ${(error as Error).message}`)
+    failed = true
+  }
+  if (app)
+    try {
+      for (const id of valid) {
+        try {
+          const d = await displayCheck({
+            app,
+            courseId: id,
+            outDir: screensDir(repo, id),
+          })
+          console.log(formatDisplayCheck(d, repo))
+          if (!d.ok) failed = true
+        } catch (error) {
+          // The browser is missing, or a page never loaded.
+          console.error(`display-check ${id}: ${(error as Error).message}`)
+          failed = true
+        }
+      }
+    } finally {
+      await app.stop()
+    }
 }
 
 console.log(

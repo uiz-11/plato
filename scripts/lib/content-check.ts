@@ -6,7 +6,8 @@
 // - No file under a course folder published at the base is added, changed or
 //   deleted.
 // - Every course newly added to `published.json` passes
-//   `course:validate --publish`. (T21 adds the display check, §11.4.)
+//   `course:validate --publish` and the display check (§11.4), which
+//   `scripts/content-check.ts` runs on the newly published ids.
 
 import { execFileSync } from "node:child_process"
 import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs"

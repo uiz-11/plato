@@ -19,7 +19,8 @@
     "course:publish": "tsx scripts/course-publish.ts",
     "course:not-built": "tsx scripts/course-not-built.ts",
     "content:check": "tsx scripts/content-check.ts",
-    "requests:export": "tsx scripts/requests-export.ts"
+    "requests:export": "tsx scripts/requests-export.ts",
+    "course:display-check": "tsx scripts/course-display-check.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

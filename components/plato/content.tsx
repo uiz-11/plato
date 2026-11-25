@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 
 import { CitationChip } from "./citation-chip"
 import { ContentLabel } from "./content-label"
+import { DisplayMath } from "./display-math"
 
 export type ContentContext = {
   courseId: string
@@ -196,6 +197,14 @@ function components(ctx: ContentContext, svgs: Element[]): ContentComponents {
         {...p}
       />
     ),
+    // KaTeX's display math: focusable while it scrolls sideways (§11.4).
+    span: (p: ComponentProps<"span">) =>
+      typeof p.className === "string" &&
+      p.className.split(" ").includes("katex-display") ? (
+        <DisplayMath {...p} />
+      ) : (
+        <span {...p} />
+      ),
     // Plain and horizontally scrollable (§5.3): no highlighting.
     pre: (p: ComponentProps<"pre">) => (
       <pre
