@@ -30,19 +30,3 @@ export function readAuthConfig(
   if (problems.length) throw new Error(problems.join("; "))
   return { passcode, secret }
 }
-
-/**
- * Start-up check (instrumentation.ts). The server refuses to start with a
- * missing or short passcode rather than serving an open or broken gate.
- */
-export function checkAuthConfigOrExit(): void {
-  try {
-    readAuthConfig()
-  } catch (error) {
-    console.error(
-      "Auth configuration is invalid:",
-      error instanceof Error ? error.message : error
-    )
-    process.exit(1)
-  }
-}

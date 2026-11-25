@@ -30,9 +30,11 @@ export function openDb(path: string): Db {
  * path would put the database where the next build deletes it. Development
  * defaults to `plato.db`.
  */
-export function dbPath(): string {
-  const path = process.env.PLATO_DB_PATH
-  if (process.env.NODE_ENV === "production") {
+export function dbPath(
+  env: Record<string, string | undefined> = process.env
+): string {
+  const path = env.PLATO_DB_PATH
+  if (env.NODE_ENV === "production") {
     if (!path) throw new Error("PLATO_DB_PATH is not set")
     if (!isAbsolute(path))
       throw new Error(`PLATO_DB_PATH must be an absolute path, got "${path}"`)

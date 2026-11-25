@@ -10,6 +10,8 @@ test-results
 docs
 *.db
 *.db-*
+*.db.*
+backups
 .env*
 Dockerfile
 .dockerignore

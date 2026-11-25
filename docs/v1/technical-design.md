@@ -900,6 +900,8 @@ How it checks:
 - **Backups.**
   - The host's daily volume snapshots are the primary backup. Fly volumes are snapshotted daily by default; on other hosts, the provider's snapshot feature is turned on.
   - `npm run db:backup` writes a consistent copy with `VACUUM INTO`, for manual backups and restore drills.
+  - `npm run db:restore <file>` checks a backup and stages it as `<db>.restore`. At the next start within an hour, before migrating, the server checkpoints the current file, moves it aside as `<db>.pre-restore-<timestamp>`, and swaps the staged file in. A backup from a newer schema is refused. Both scripts run in the image with plain `node`.
+  - At start-up the server lists every invalid setting in §12.1 and exits. In production it warns when the database's directory is not a mounted volume.
   - The README documents restoring from a snapshot or a backup file, and T22 performs the restore once.
 - **Errors.** Server errors go to stdout. `error.tsx` boundaries show a plain retry message. There is no telemetry service.
 

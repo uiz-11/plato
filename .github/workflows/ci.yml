@@ -48,7 +48,8 @@ jobs:
           code=0; out=$(timeout 30 docker run --rm --init plato:ci 2>&1) || code=$?
           echo "$out"
           test "$code" = 1 || { echo "expected exit 1 without PLATO_PASSCODE, got $code"; exit 1; }
-          echo "$out" | grep -q "Auth configuration is invalid"
+          echo "$out" | grep -q "Plato cannot start"
+          echo "$out" | grep -q "PLATO_PASSCODE is not set"
           docker run -d --name plato -p 3000:3000 \
             -e PLATO_PASSCODE=ci-passcode-at-least-20-chars \
             -e PLATO_COOKIE_SECRET=ci-cookie-secret \
@@ -87,6 +88,10 @@ jobs:
             -H 'authorization: Bearer ci-passcode-at-least-20-chars' \
             http://127.0.0.1:3000/dev/preview/how-encryption-works)
           test "$status" = 404 || { echo "preview route answered $status"; exit 1; }
+
+      - name: Restart and restore drill
+        # Data survives a restart and a new container, and a backup restores (§12.2).
+        run: scripts/docker-drill.sh plato:ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
