@@ -92,9 +92,13 @@ export function SyllabusMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         {shown === "skip" ? (
-          <DropdownMenuItem onClick={skip}>Mark as skipped</DropdownMenuItem>
+          <DropdownMenuItem className="min-h-11 md:min-h-0" onClick={skip}>
+            Mark as skipped
+          </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onClick={unskip}>Unskip</DropdownMenuItem>
+          <DropdownMenuItem className="min-h-11 md:min-h-0" onClick={unskip}>
+            Unskip
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

@@ -17,7 +17,10 @@ export default function NotFound() {
       </div>
       <Link
         href="/"
-        className={cn(buttonVariants(), "focus-visible:ring-ring")}
+        className={cn(
+          buttonVariants(),
+          "min-h-11 focus-visible:ring-ring md:min-h-9"
+        )}
       >
         Back to Today
       </Link>

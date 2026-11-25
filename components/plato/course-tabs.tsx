@@ -20,7 +20,7 @@ export function CourseTabs({ courseId }: { courseId: string }) {
   const segment = useSelectedLayoutSegment()
   return (
     <nav aria-label="Course" data-slot="course-tabs" className="border-b">
-      <ul className="-mb-px flex gap-1">
+      <ul className="-mb-px flex gap-2">
         {COURSE_TABS.map((tab) => {
           const current = segment === tab.segment
           return (

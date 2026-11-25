@@ -52,6 +52,9 @@
        shell layout, the nav and the scroll padding below. */
   --phone-header-h: 3.5rem;
   --phone-tabs-h: 3.5rem;
+  /* The player's header (PlayerFrame): its buttons, 8px above and below,
+     and a 1px border. The buttons are 44px on a phone, 32px from md. */
+  --player-header-h: calc(2.75rem + 1rem + 1px);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -138,6 +141,19 @@
   @apply outline-none focus-visible:ring-3 focus-visible:ring-ring;
 }
 
+@media (width >= 48rem) {
+  :root {
+    --player-header-h: calc(2rem + 1rem + 1px);
+  }
+}
+
+/* The player's header is sticky at every width: content focused or scrolled
+   into view stays clear of it. The header itself gets no margin, as it never
+   scrolls, so focusing its buttons does not move the page. */
+[data-slot="player-main"] * {
+  scroll-margin-top: var(--player-header-h);
+}
+
 /* Keep focused and anchored content clear of the phone header and tabs
    (WCAG 2.4.7). The tab bar adds a 1px top border. */
 @media (width < 48rem) {
@@ -146,5 +162,16 @@
     scroll-padding-bottom: calc(
       var(--phone-tabs-h) + 1px + env(safe-area-inset-bottom)
     );
+  }
+
+  /* The player has its own header and a pinned action bar instead of the
+     shell's. Content scrolls clear of the bar through its own margin (the
+     header's is above); the bar itself gets none, as it never scrolls. */
+  html:has([data-slot="player-main"]) {
+    scroll-padding: 0;
+  }
+  [data-slot="player-main"]
+    :not([data-slot="action-bar"], [data-slot="action-bar"] *) {
+    scroll-margin-bottom: var(--player-bar-h, 0px);
   }
 }

@@ -35,7 +35,10 @@ const confidence = (page: Page, name: "Sure" | "Not sure" | "Guess") =>
 /** The steps row: a text label on a phone (WF-I2.1), segments on desktop. */
 async function expectStep(page: Page, n: number, step: string) {
   if (test.info().project.name === "phone") {
-    await expect(page.getByText(`Step ${n} of 5 · ${step}`)).toBeVisible()
+    // In the page, not the live region that announces it (WF-J).
+    await expect(
+      page.getByRole("main").getByText(`Step ${n} of 5 · ${step}`)
+    ).toBeVisible()
   } else {
     await expect(
       page

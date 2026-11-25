@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { GRADE_LABEL } from "@/lib/engine/labels"
 import type { Grade } from "@/lib/engine/types"
 
+import { ActionBar } from "./action-bar"
+
 const GRADES: readonly Grade[] = ["forgot", "partly", "remembered"]
 
 /**
@@ -102,7 +104,7 @@ export function RecallPrompt({
         </section>
       ) : null}
 
-      <div ref={after} className="mt-auto flex flex-col gap-3">
+      <ActionBar ref={after} className="flex flex-col gap-3">
         {!revealed ? (
           <Button
             size="lg"
@@ -156,7 +158,7 @@ export function RecallPrompt({
             </Button>
           </div>
         )}
-      </div>
+      </ActionBar>
     </div>
   )
 }

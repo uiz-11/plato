@@ -19,6 +19,7 @@ import type { ItemAnswer } from "@/lib/engine/player"
 import type { Confidence } from "@/lib/engine/types"
 import { cn } from "@/lib/utils"
 
+import { ActionBar } from "./action-bar"
 import { BriefSheet } from "./brief-sheet"
 import { ConfidenceButtons } from "./confidence-buttons"
 import { useDraft, usePlayer, type DraftCopy } from "./runtime"
@@ -322,9 +323,9 @@ function AutoExercise({
           onNext={onNext}
         />
       ) : (
-        <div className="mt-auto">
+        <ActionBar>
           <ConfidenceButtons disabled={!ready || pending} onPick={submit} />
-        </div>
+        </ActionBar>
       )}
     </div>
   )
@@ -529,6 +530,7 @@ function ShortAnswer({
   const [ticked, setTicked] = useState<number[]>(stored?.ticked ?? [])
   const [justSubmitted, setJustSubmitted] = useState(false)
   const id = useId()
+  const wrote = useRef<HTMLHeadingElement>(null)
   const words = wordCount(text)
 
   // A reload after Submit returns to the checklist as it was (§9.3): the
@@ -548,6 +550,12 @@ function ShortAnswer({
     setTicked(check.filter((i) => i >= 0 && i < exercise.checklist.length))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey])
+
+  // After Submit, focus goes to what was written, then the sample and the
+  // checklist in reading order: the feedback comes after the ticks (WF-J).
+  useEffect(() => {
+    if (justSubmitted) wrote.current?.focus()
+  }, [justSubmitted])
 
   const total = exercise.checklist.length
   // An answer read back without its ticks shows no count.
@@ -581,7 +589,7 @@ function ShortAnswer({
               : `${words} of about ${SHORT_ANSWER_WORDS} words`}
           </p>
         </div>
-        <div className="mt-auto">
+        <ActionBar>
           <Button
             size="lg"
             className="min-h-11 w-full md:w-auto"
@@ -596,7 +604,7 @@ function ShortAnswer({
           >
             Submit
           </Button>
-        </div>
+        </ActionBar>
       </div>
     )
   }
@@ -618,7 +626,11 @@ function ShortAnswer({
       <div className="text-lg leading-relaxed font-medium">{nodes.prompt}</div>
       <div className="grid gap-3 md:grid-cols-2">
         <section className="rounded-lg border p-4 text-sm">
-          <h3 className="mb-1 text-xs font-medium text-muted-foreground">
+          <h3
+            ref={wrote}
+            tabIndex={-1}
+            className="mb-1 text-xs font-medium text-muted-foreground outline-none"
+          >
             You wrote
           </h3>
           <p className="whitespace-pre-wrap">{written}</p>
@@ -634,7 +646,7 @@ function ShortAnswer({
         <h3 id={`${id}-ticks`} className="text-sm font-medium">
           Tick what you covered
         </h3>
-        <ul aria-labelledby={`${id}-ticks`} className="flex flex-col gap-1">
+        <ul aria-labelledby={`${id}-ticks`} className="flex flex-col gap-2">
           {exercise.checklist.map((point, i) => (
             <li key={i}>
               <label className="flex min-h-11 items-start gap-3 text-sm">
@@ -656,7 +668,7 @@ function ShortAnswer({
         explanationOpen
         anchor={exercise.anchor}
         brief={brief}
-        focus={justSubmitted}
+        focus={false}
         footer={line}
         pending={pending}
         onNext={() => {
@@ -738,7 +750,7 @@ export function Feedback({
           {note ? <p className="text-muted-foreground">{note}</p> : null}
           {why ? <div className="[&_p]:my-0">{explanation}</div> : null}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
           {why ? null : (
             <Button
               variant="link"
@@ -759,7 +771,7 @@ export function Feedback({
           ) : null}
         </div>
       </section>
-      <div className="mt-auto flex items-center justify-between gap-3">
+      <ActionBar className="flex items-center justify-between gap-3">
         {footer ? (
           <span className="text-sm text-muted-foreground">{footer}</span>
         ) : (
@@ -773,7 +785,7 @@ export function Feedback({
         >
           Next
         </Button>
-      </div>
+      </ActionBar>
       {brief ? (
         <BriefSheet open={sheet} onOpenChange={setSheet} anchor={anchor}>
           {brief}
