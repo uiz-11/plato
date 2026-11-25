@@ -98,9 +98,10 @@ test("the main button starts a session on this course", async ({ page }) => {
   await page.goto(`/courses/${ENC.id}/syllabus`)
   await page.getByRole("button", { name: "Start Lesson 1" }).click()
   await expect(page).toHaveURL(/\/session\/[0-9a-f-]+$/)
-  await expect(
-    page.getByRole("heading", { name: "Session started" })
-  ).toBeVisible()
+  // The player opens on the course's first lesson (§7.7).
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Lesson 1 · Locks with one key"
+  )
   expect(seed.sessionCount()).toBe(1)
 })
 

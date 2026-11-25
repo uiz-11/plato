@@ -311,7 +311,13 @@ export function warmupPrompts(
  * nothing missed, the first two candidates.
  */
 export function selectRecallExercises(
-  lesson: Pick<Lesson, "concepts" | "exercises">,
+  lesson: {
+    concepts: readonly Pick<Lesson["concepts"][number], "id">[]
+    exercises: readonly Pick<
+      Lesson["exercises"][number],
+      "id" | "pool" | "concepts"
+    >[]
+  },
   ticked: readonly string[]
 ): string[] {
   const candidates = lesson.exercises.filter((e) => e.pool === "recall")

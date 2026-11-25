@@ -1,0 +1,168 @@
+// The player's shared rules (§8.4): event shapes, how a review answer is
+// marked and re-queued, the review block's local moves, the timer, and
+// whether a session made its course *Complete*. The client runs these for
+// instant feedback; the server runs them again when it records the event.
+
+import type { Exercise, Lesson } from "@/lib/content/schema"
+
+import { reviewKey, type ReviewQueueItem } from "./session"
+import {
+  gradeAnswer,
+  gradeRecallPrompt,
+  isRetryAt,
+  isWrongSure,
+  requeueWrongSure,
+  type ExerciseResponse,
+  type MarkedAnswer,
+} from "./marking"
+import type { SessionWork } from "./labels"
+import type {
+  Confidence,
+  Grade,
+  LessonPosition,
+  SessionKind,
+  SessionPosition,
+} from "./types"
+
+// --- Events -----------------------------------------------------------------
+
+/** What the learner gave for one item. */
+export type ItemAnswer =
+  /** A recall prompt, self-rated (WF-D1). */
+  | { kind: "rating"; grade: Grade }
+  /** An exercise; automatically marked types carry a confidence. */
+  | {
+      kind: "exercise"
+      response: ExerciseResponse
+      confidence: Confidence | null
+    }
+
+/** The events the player sends (§8.4), with what each carries. */
+export type PlayerEvent =
+  | { kind: "answer"; answer: ItemAnswer }
+  | { kind: "answer-next" }
+  | { kind: "recall-write"; text: string }
+  | { kind: "recall-tick"; ticked: string[] }
+  | { kind: "continue" }
+
+/** Where the client was when it sent an event (§8.4). */
+export interface ExpectedPosition {
+  session: SessionPosition
+  /** The lesson position inside a lesson unit, otherwise null. */
+  lesson: LessonPosition | null
+}
+
+/** One event as sent: its id, the expected position and the active time. */
+export interface PlayerEnvelope {
+  /** Client-generated UUID; also the attempt id of an answer. */
+  id: string
+  expected: ExpectedPosition
+  /** The session's active time so far, in ms (§7.7). */
+  activeMs: number
+  event: PlayerEvent
+}
+
+/** What `recordEvent` and `finishUnit` answer. */
+export type EventResult =
+  | { ok: true }
+  /**
+   * The expected position did not match (a second tab, a session closed
+   * elsewhere): the event was ignored and the client reloads the true state.
+   */
+  | { ok: false; stale: true }
+  /**
+   * The server could not apply the event and never will: a malformed event,
+   * or one that does not fit the session (§8.3 typed errors). Retrying cannot
+   * help, so the client drops what is queued and reloads the true state.
+   */
+  | { ok: false; refused: true }
+
+// --- Review items -----------------------------------------------------------
+
+/**
+ * Marks one review item. A recall prompt takes a rating; an exercise is marked
+ * from content with the same functions the server uses (§7.2).
+ */
+export function markReviewItem(
+  item: Pick<ReviewQueueItem, "version">,
+  lesson: Pick<Lesson, "exercises">,
+  answer: ItemAnswer
+): MarkedAnswer {
+  if (item.version.kind === "prompt") {
+    if (answer.kind !== "rating")
+      throw new Error("A recall prompt is answered with a rating")
+    return gradeRecallPrompt(answer.grade)
+  }
+  if (answer.kind !== "exercise")
+    throw new Error("An exercise is answered with a response")
+  const { exerciseId } = item.version
+  const exercise = lesson.exercises.find((e) => e.id === exerciseId)
+  if (!exercise) throw new Error(`No exercise ${exerciseId}`)
+  return gradeAnswer(exercise as Exercise, answer.response, answer.confidence)
+}
+
+/** Whether the review at `index` is a wrong *Sure*'s retry. */
+export const isReviewRetry = (
+  queue: readonly ReviewQueueItem[],
+  index: number
+) => isRetryAt(queue, index, reviewKey)
+
+/**
+ * The review queue after an answer: grown by the retry after a wrong *Sure*
+ * (§7.2), or null when it is unchanged.
+ */
+export function reviewQueueAfter(
+  queue: readonly ReviewQueueItem[],
+  index: number,
+  marked: MarkedAnswer
+): ReviewQueueItem[] | null {
+  return isWrongSure(marked) ? requeueWrongSure(queue, index, reviewKey) : null
+}
+
+/** The review block's position after `answer-next`; null at its last item. */
+export function nextReviewPosition(
+  index: number,
+  queueLength: number
+): SessionPosition | null {
+  return index + 1 < queueLength ? { unit: "reviews", index: index + 1 } : null
+}
+
+// --- Timer (§8.4) -----------------------------------------------------------
+
+/**
+ * The frame's timer: time left, counting down from `minutes × 60 − active`,
+ * or elapsed time for `full_lesson`. In whole minutes: "13 min left", "12 min".
+ * Reaching zero does nothing by itself (§7.7).
+ */
+export function timerLabel(
+  kind: SessionKind,
+  minutes: number,
+  activeMs: number
+): string {
+  if (kind === "full_lesson") return `${Math.floor(activeMs / 60_000)} min`
+  const left = Math.max(0, Math.ceil((minutes * 60_000 - activeMs) / 60_000))
+  return `${left} min left`
+}
+
+/** The session-complete frame's "minutes used" (§9.2): "15 min". */
+export const minutesUsedLabel = (activeMs: number) =>
+  `${Math.round(activeMs / 60_000)} min`
+
+// --- Ending -----------------------------------------------------------------
+
+/**
+ * Whether the session made its course *Complete* (§7.7 Ending): the course is
+ * *Complete* now and the session completed a lesson or answered in a
+ * checkpoint. A course that was *Complete* before the session can do neither,
+ * since a completed lesson cannot be completed again and a *Done* checkpoint
+ * is never a target.
+ */
+export function madeCourseComplete(
+  complete: boolean,
+  work: Pick<SessionWork, "lessonsCompleted" | "checkpoints">
+): boolean {
+  return (
+    complete &&
+    (work.lessonsCompleted.length > 0 || work.checkpoints.length > 0)
+  )
+}
