@@ -3,9 +3,9 @@ import { expect, test, type Page } from "@playwright/test"
 import { lessonSkippedToast } from "../lib/engine/labels"
 import { ENC, Seed } from "./seed"
 
-// e2e journey 3, Syllabus part (§10, §7.3, WF-C1.4): skip a lesson from the
-// ⋯ menu, undo it from the toast, and unskip it from the menu. The player
-// part is added with the player (T17).
+// e2e journey 3 (§10, §7.3, WF-C1.4, WF-E1): skip a lesson from the ⋯
+// menu, undo it from the toast, and unskip it from the menu; then the same
+// from the player's ⋯ menu.
 
 let seed: Seed
 test.beforeAll(() => {
@@ -111,4 +111,73 @@ test("a completed lesson has no ⋯ menu", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /^More for Lesson 2/ })
   ).toBeVisible()
+})
+
+test("journey 3: skip and undo from the player", async ({ page }) => {
+  seed.reset().startLesson(ENC.id, ENC.lessons[0], { step: "read" })
+  await page.goto("/")
+  await page.getByRole("button", { name: "Start session" }).click()
+  await expect(page).toHaveURL(/\/session\//)
+  // The frame's title; the brief has its own heading.
+  const title = page.locator("header h1")
+  await expect(title).toHaveText("Lesson 1 · Locks with one key")
+  await expect(page.getByRole("button", { name: "Done reading" })).toBeVisible()
+
+  // ⋯ → Mark as skipped: the session moves on to the next lesson.
+  await page.getByRole("button", { name: "More" }).click()
+  await page.getByRole("menuitem", { name: "Mark as skipped" }).click()
+  await expect(title).toHaveText("Lesson 2 · Fingerprints for data")
+  expect(seed.lessonRow(ENC.id, ENC.lessons[0])).toMatchObject({
+    skipped: 1,
+    position: JSON.stringify({ step: "read" }),
+  })
+
+  // Undo returns to the lesson where it stopped.
+  const toast = page.locator("[data-sonner-toast]").filter({
+    hasText: lessonSkippedToast(1),
+  })
+  await toast.getByRole("button", { name: "Undo" }).click()
+  await expect(title).toHaveText("Lesson 1 · Locks with one key")
+  await expect(page.getByRole("button", { name: "Done reading" })).toBeVisible()
+  expect(seed.lessonRow(ENC.id, ENC.lessons[0])?.skipped).toBe(0)
+
+  // Skipped again, then Lesson 2 too, and left with ×.
+  const more = () => page.getByRole("button", { name: "More" }).click()
+  await more()
+  await page.getByRole("menuitem", { name: "Mark as skipped" }).click()
+  await expect(title).toHaveText("Lesson 2 · Fingerprints for data")
+  await more()
+  await page.getByRole("menuitem", { name: "Mark as skipped" }).click()
+  await expect(title).toHaveText("Lesson 3 · Agreeing on a secret in public")
+  await page
+    .getByRole("button", { name: "Exit session, progress saved" })
+    .click()
+  await expect(
+    page.getByRole("heading", { name: "Session complete", level: 2 })
+  ).toBeVisible()
+
+  // × ended the session, so Lesson 1's Undo is too late and says so,
+  // leaving the summary as it is.
+  // The toasts stack; hovering spreads them out, as for a mouse user.
+  await page.locator("[data-sonner-toast][data-front=true]").hover()
+  await toast.getByRole("button", { name: "Undo" }).click()
+  await expect(page.getByText("Couldn't undo the skip.")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Session complete", level: 2 })
+  ).toBeVisible()
+  expect(seed.lessonRow(ENC.id, ENC.lessons[0])?.skipped).toBe(1)
+
+  // Leaving the player takes the remaining skip toast with it.
+  const lesson2Toast = page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: lessonSkippedToast(2) })
+  await expect(lesson2Toast).toBeVisible()
+  await page.getByRole("button", { name: "Back to Today" }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(lesson2Toast).toHaveCount(0)
+
+  await page.goto(SYLLABUS)
+  await expect(
+    row(page, "1. Locks with one key").locator("[data-slot=status-dot]")
+  ).toHaveText("Skipped")
 })

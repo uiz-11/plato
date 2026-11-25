@@ -333,9 +333,9 @@ function AutoExercise({
 /**
  * An option list: a `RadioGroup` before answering (arrow keys, WF-J), then
  * the same options with the pick and the correct one marked by a symbol and
- * text as well as style (§9.1 Feedback).
+ * text as well as style (§9.1 Feedback). Guess first uses it unmarked.
  */
-function Options({
+export function Options({
   label,
   showLabel = false,
   ids,

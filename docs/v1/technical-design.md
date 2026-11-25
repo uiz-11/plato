@@ -311,7 +311,7 @@ SQLite, one file at `PLATO_DB_PATH`, WAL mode, `foreign_keys=ON`.
 | `concept_schedule` | `course_id`, `concept_id`, `lesson_day`, `due_day`, `interval_days`, `ease`, `last_event_day`, `later_day_reviews`, `last_grade`, `version_cursor` | PK (`course_id`, `concept_id`); index `due_day`. Created when the concept's lesson is completed (§7.4). |
 | `answer_note` | `id`, `course_id`, `key_question_id`, `lesson_id` (null when added on the Answers tab), `text`, `created_at`, `updated_at` | Index (`course_id`, `key_question_id`, `created_at`). Hard delete. |
 | `draft` | `key`, `text`, `updated_at` | PK `key`: `recall:<course>:<lesson>`, `short:<course>:<exercise>` or `note:<course>:<lesson>:<kq>`. Deleted when its text is submitted. The recall draft becomes `lesson_progress.recall_text` when the learner moves on to tick. |
-| `session` | `id`, `kind` (`standard`/`reviews_only`/`full_lesson`), `minutes`, `course_id` (null for a session without a target), `review_queue` (JSON), `checkpoint_queue` (JSON), `position` (JSON `SessionPosition`), `last_event_id`, `active_ms`, `started_at`, `ended_at` | At most one session has `ended_at` null. Starting a new one closes the old one. |
+| `session` | `id`, `kind` (`standard`/`reviews_only`/`full_lesson`), `minutes`, `course_id` (null for a session without a target), `review_queue` (JSON), `checkpoint_queue` (JSON), `position` (JSON `SessionPosition`), `last_event_id`, `skip_undo` (JSON: the player's last skip's event id, and the lesson it moved on to with that lesson's row before the skip), `active_ms`, `started_at`, `ended_at` | At most one session has `ended_at` null. Starting a new one closes the old one. `skip_undo` lets Undo put the lesson the skip moved on to back as it was (§7.7). |
 | `shown_up_day` | `day` | PK. `INSERT OR IGNORE` with every progress event (§7.1). The counter on Today is `COUNT(*)`. |
 
 **Stored vs derived.**
@@ -507,7 +507,7 @@ type SessionPosition =
 - A checkpoint's mastery summary always follows its last exercise, with no budget check.
 - **`full_lesson`** ignores the budget, ends when its lesson completes, and never continues into a checkpoint. Its timer shows elapsed time.
 
-**Skipping mid-session.** *Mark as skipped* in the player's ⋯ menu skips the current lesson, shows the Undo toast and moves on to the next target under the budget rule. Undo returns to the lesson at its saved position.
+**Skipping mid-session.** *Mark as skipped* in the player's ⋯ menu skips the current lesson, shows the Undo toast and moves on to the next target under the budget rule. Undo returns to the lesson at its saved position. If nothing was done in the lesson the skip moved on to, Undo restores that lesson's row as it was before the skip. Undo reopens a session only when the skip ended it and nothing has happened since; × closes that window.
 
 **Ending.** A session ends on its end screens (WF-E8), including when the learner leaves early with **×** (R8). Entering `{unit: 'end'}` sets `ended_at`. If the session made the course *Complete*, the course-complete screen (WF-G3) comes before the summary.
 

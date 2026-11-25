@@ -14,6 +14,7 @@ import {
   forgetLocalDraft,
   useDraft,
   usePlayer,
+  useReportPosition,
   type DraftCopy,
 } from "./runtime"
 
@@ -57,6 +58,7 @@ export function RecallUnit({
   const [text, setText] = useState(written ?? "")
   const heading = useRef<HTMLHeadingElement>(null)
   const session: SessionPosition = { unit: "lesson", lessonId }
+  useReportPosition({ session, lesson: { step: "recall", phase } })
 
   // Loaded at the ticks: the server has the text, so a local copy left by a
   // send that was confirmed after a reload is no longer needed.
@@ -96,10 +98,12 @@ export function RecallUnit({
           concepts={concepts}
           exercises={exercises}
           onPractice={(ticked) =>
-            player.finish(
-              { kind: "recall-tick", ticked },
-              { session, lesson: { step: "recall", phase: "tick" } }
-            )
+            player
+              .finish(
+                { kind: "recall-tick", ticked },
+                { session, lesson: { step: "recall", phase: "tick" } }
+              )
+              .then(() => undefined)
           }
         />
       )}

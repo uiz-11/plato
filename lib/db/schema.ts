@@ -159,6 +159,18 @@ export const draft = sqliteTable("draft", {
   updatedAt: ms("updated_at").notNull(),
 })
 
+/**
+ * The player's last skip (§7.3): its event id, and the lesson it moved on to
+ * with that lesson's progress row before the skip (null when it had none).
+ */
+export interface SkipUndo {
+  skipEventId: string
+  next: {
+    lessonId: string
+    before: typeof lessonProgress.$inferSelect | null
+  } | null
+}
+
 export const session = sqliteTable(
   "session",
   {
@@ -177,6 +189,9 @@ export const session = sqliteTable(
       .$type<SessionPosition>()
       .notNull(),
     lastEventId: text("last_event_id"),
+    // What the player's last *Mark as skipped* moved on to, so its Undo can
+    // put that lesson back as it was (§7.3).
+    skipUndo: text("skip_undo", { mode: "json" }).$type<SkipUndo>(),
     activeMs: integer("active_ms").notNull().default(0),
     startedAt: ms("started_at").notNull(),
     endedAt: ms("ended_at"),

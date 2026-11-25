@@ -1,0 +1,1 @@
+ALTER TABLE `session` ADD `skip_undo` text;

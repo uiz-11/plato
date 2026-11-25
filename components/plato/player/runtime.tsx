@@ -6,6 +6,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,7 +19,9 @@ import {
   finishUnit,
   recordEvent,
   saveDraft,
+  undoSkip,
 } from "@/app/actions/player"
+import { stepOf, type LessonStep } from "@/lib/engine/lesson"
 import type {
   EventResult,
   ExpectedPosition,
@@ -50,9 +53,29 @@ interface PlayerRuntime {
   /**
    * Sends a unit's last event once the outbox is empty; the next unit
    * arrives with the answer. Call inside a transition for a pending state.
-   * Ignored while another finish or **×** is under way.
+   * Ignored while another finish or **×** is under way. Resolves true when
+   * the server applied it.
    */
-  finish: (event: PlayerEvent, expected: ExpectedPosition) => Promise<void>
+  finish: (
+    event: PlayerEvent,
+    expected: ExpectedPosition,
+    opts?: { id?: string }
+  ) => Promise<boolean>
+  /**
+   * The position the unit is at now, as it moves locally: a unit reports it
+   * with `report`, and ⋯ *Mark as skipped* sends it as its expected
+   * position (§8.4).
+   */
+  report: (expected: ExpectedPosition) => void
+  current: () => ExpectedPosition | null
+  /**
+   * The lesson step the unit has reached locally (Recall exercises move on
+   * to step 5 inside one unit), for the steps row; undefined until a lesson
+   * unit reports. `null` once the lesson is done.
+   */
+  lessonStep: { lessonId: string; step: LessonStep | null } | undefined
+  /** Undo on the "Lesson N skipped" toast (§8.3), naming the skip's event. */
+  undoSkip: (lessonId: string, skipEventId: string) => Promise<void>
   /** **×**: saves drafts and the active time, then the end screens. */
   exit: () => Promise<void>
   /** A finish or **×** is under way: the other waits (× is disabled). */
@@ -81,6 +104,12 @@ export const newEventId = () => crypto.randomUUID()
 
 /** Shown when the server refuses an event (§8.3); toasts are announced. */
 export const REFUSED_TOAST = "Couldn't save that. Showing where you are."
+
+/**
+ * Shown when Undo on a skip no longer applies: the session moved on, or the
+ * lesson changed elsewhere.
+ */
+export const UNDO_STALE_TOAST = "Couldn't undo the skip."
 
 /** Next's own errors (the redirect to /unlock, not found) are never retried. */
 function isNextError(error: unknown): boolean {
@@ -151,6 +180,9 @@ export function PlayerRuntimeProvider({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
   const drafts = useRef(new Map<string, DraftCopy>())
+  const position = useRef<ExpectedPosition | null>(null)
+  const [lessonStep, setLessonStep] =
+    useState<PlayerRuntime["lessonStep"]>(undefined)
   const [busy, setBusy] = useState(false)
   const [exclusive] = useState(() => exclusiveRunner(setBusy))
   const [resync, setResync] = useState(0)
@@ -197,13 +229,43 @@ export function PlayerRuntimeProvider({
         outbox.push(env, opts?.onSent)
         return env.id
       },
-      finish: (event, expected) =>
-        exclusive(async () => {
+      finish: async (event, expected, opts) => {
+        let applied = false
+        await exclusive(async () => {
           // An earlier event was rejected: the page is already reloading.
           if (!(await outbox.drainClean())) return
-          const env = envelope(event, expected)
+          const env = envelope(event, expected, opts?.id)
           const result = await outbox.sendNow(() => finishUnit(sessionId, env))
           if (!result.ok) rejected(result)
+          else applied = true
+        })
+        return applied
+      },
+      report(expected) {
+        position.current = expected
+        const { session, lesson } = expected
+        const next =
+          session.unit === "lesson" && lesson
+            ? { lessonId: session.lessonId, step: stepOf(lesson) }
+            : undefined
+        setLessonStep((was) =>
+          was?.lessonId === next?.lessonId && was?.step === next?.step
+            ? was
+            : next
+        )
+      },
+      current: () => position.current,
+      lessonStep,
+      undoSkip: (lessonId, skipEventId) =>
+        exclusive(async () => {
+          if (!(await outbox.drainClean())) return
+          const result = await outbox.sendNow(() =>
+            undoSkip(sessionId, lessonId, skipEventId)
+          )
+          // Too late: nothing changed on the server, so the screen stays as
+          // it is and only says so.
+          if (!result.ok && "stale" in result) toast(UNDO_STALE_TOAST)
+          else if (!result.ok) rejected(result)
         }).then(() => undefined),
       exit: () =>
         exclusive(async () => {
@@ -230,6 +292,7 @@ export function PlayerRuntimeProvider({
     saving,
     busy,
     resync,
+    lessonStep,
     envelope,
     outbox,
     exclusive,
@@ -347,4 +410,17 @@ export function useDraft(key: string, server: DraftCopy | null) {
   const forget = useCallback(() => forgetLocalDraft(key), [key])
 
   return { text, change, blur, submit, forget }
+}
+
+/**
+ * Reports the unit's current position to the runtime as it moves locally,
+ * so ⋯ *Mark as skipped* can send it as its expected position (§8.4).
+ */
+export function useReportPosition(expected: ExpectedPosition): void {
+  const { report } = usePlayer()
+  const key = JSON.stringify(expected)
+  // Before paint, so the steps row never shows the step the unit left.
+  useLayoutEffect(() => {
+    report(JSON.parse(key) as ExpectedPosition)
+  }, [key, report])
 }

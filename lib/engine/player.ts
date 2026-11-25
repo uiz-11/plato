@@ -39,10 +39,16 @@ export type ItemAnswer =
 
 /** The events the player sends (§8.4), with what each carries. */
 export type PlayerEvent =
+  | { kind: "warmup-next" }
+  | { kind: "guess-lock"; optionId: string }
+  | { kind: "read-done" }
   | { kind: "answer"; answer: ItemAnswer }
   | { kind: "answer-next" }
   | { kind: "recall-write"; text: string }
   | { kind: "recall-tick"; ticked: string[] }
+  | { kind: "note-stick"; text: string }
+  | { kind: "answers-skip" }
+  | { kind: "skip-lesson" }
   | { kind: "continue" }
 
 /** Where the client was when it sent an event (§8.4). */

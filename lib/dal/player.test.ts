@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto"
 
+import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { Db } from "@/lib/db/client"
 import {
+  answerNote,
   attempt,
   conceptSchedule,
   draft,
@@ -29,9 +31,11 @@ import {
   applyPlayerEvent,
   exitPlayerSession,
   getPlayerUnit,
+  noteDraftKey,
   recallDraftKey,
   saveDraftText,
   shortDraftKey,
+  undoPlayerSkip,
   type PlayerView,
 } from "./player"
 import { startNewSession } from "./sessions"
@@ -542,7 +546,11 @@ describe("Recall exercises", () => {
     const key = shortDraftKey(ENC, "e-kerckhoffs-recall")
     await saveDraftText({ key, text: "public study", updatedAt: 9 })
     const view = await getPlayerUnit(id)
-    expect(view.frame.steps).toEqual({ current: "recall", hasWarmup: false })
+    expect(view.frame.steps).toEqual({
+      lessonId: LESSON,
+      current: "recall",
+      hasWarmup: false,
+    })
     if (view.unit.kind !== "recall-exercises") throw new Error(view.unit.kind)
     expect(view.unit.items.map((i) => i.exercise.id)).toEqual(QUEUE)
     expect(view.unit.items.map((i) => i.draftKey)).toEqual([
@@ -667,10 +675,16 @@ describe("Recall exercises", () => {
     expect(lessonRow().position).toEqual({ step: "answers", index: 0 })
     const next = await getPlayerUnit(id)
     expect(next.unitKey).toBe(view.unitKey)
-    expect(next.unit).toEqual({
-      kind: "pending",
-      unit: "recall-exercises-answers",
+    expect(next.unit).toMatchObject({
+      kind: "recall-exercises",
+      stage: "answers",
+      index: QUEUE.length,
+      boardIndex: 0,
+      lessonLabel: "Lesson 1",
+      complete: null,
     })
+    if (next.unit.kind !== "recall-exercises") throw new Error()
+    expect(next.unit.boards.map((b) => b.keyQuestionId)).toEqual(["q2", "q1"])
   })
 
   it("refuses a response of the wrong type", async () => {
@@ -688,6 +702,421 @@ describe("Recall exercises", () => {
     ).rejects.toThrow(/fill response/)
     await expect(send(id, view, rate())).rejects.toThrow(/response/)
     expect(db.select().from(attempt).all()).toEqual([])
+  })
+})
+
+describe("lesson steps", () => {
+  const L1 = "symmetric-ciphers"
+  const lessonRow = (lessonId = L1) =>
+    db
+      .select()
+      .from(lessonProgress)
+      .all()
+      .find((r) => r.lessonId === lessonId)
+
+  it("starts a Ready course at Guess first, then Read, then Recall", async () => {
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const view = await getPlayerUnit(id)
+    expect(view.frame).toMatchObject({
+      title: "Lesson 1 · Locks with one key",
+      steps: { current: "guess", hasWarmup: false },
+      skip: { lessonId: L1, number: 1 },
+    })
+    expect(view.unit).toMatchObject({
+      kind: "guess",
+      index: 0,
+      pickingUp: false,
+    })
+    if (view.unit.kind !== "guess") throw new Error()
+    expect(view.unit.guesses.map((g) => g.id)).toEqual([
+      "g-caesar",
+      "g-open-design",
+    ])
+    expect(view.unit.guesses[0].options.map((o) => o.id)).toEqual([
+      "g-caesar-25",
+      "g-caesar-thousands",
+      "g-caesar-millions",
+    ])
+
+    // An option of another guess is refused.
+    await expect(
+      send(id, view, { kind: "guess-lock", optionId: "g-open-design-public" })
+    ).rejects.toThrow(/not an option/)
+    await send(id, view, { kind: "guess-lock", optionId: "g-caesar-millions" })
+    expect(lessonRow()!.position).toEqual({ step: "guess", index: 1 })
+    const second = await getPlayerUnit(id)
+    await send(id, second, {
+      kind: "guess-lock",
+      optionId: "g-open-design-public",
+    })
+    expect(db.select().from(guessAnswer).all()).toHaveLength(2)
+    expect(lessonRow()!.position).toEqual({ step: "read" })
+    expect(db.select().from(shownUpDay).all()).toEqual([{ day: DAY }])
+
+    const read = await getPlayerUnit(id)
+    expect(read.frame.steps).toEqual({
+      lessonId: L1,
+      current: "read",
+      hasWarmup: false,
+    })
+    if (read.unit.kind !== "read") throw new Error(read.unit.kind)
+    expect(read.unit.readMinutes).toBeGreaterThan(0)
+    expect(read.unit.brief.guessPicks).toEqual({
+      "g-caesar": "g-caesar-millions",
+      "g-open-design": "g-open-design-public",
+    })
+    expect(read.unit.beyond.simplified.map((e) => e.id)).toContain("s-xor-only")
+    await send(id, read, { kind: "read-done" })
+    expect(lessonRow()!.position).toEqual({ step: "recall", phase: "write" })
+    expect(sessionRow(id).position).toEqual({ unit: "lesson", lessonId: L1 })
+  })
+
+  it("warms up from the lesson last completed, without touching reviews", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, day: "2026-11-23" })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const view = await getPlayerUnit(id)
+    expect(view.frame).toMatchObject({
+      title: "Lesson 2 · Fingerprints for data",
+      steps: { current: "warmup", hasWarmup: true },
+    })
+    expect(view.unit).toMatchObject({
+      kind: "warmup",
+      sourceNumber: 1,
+      index: 0,
+    })
+    if (view.unit.kind !== "warmup") throw new Error()
+    expect(view.unit.prompts).toHaveLength(3)
+    for (let i = 0; i < 3; i++) {
+      await send(
+        id,
+        {
+          expected: {
+            session: { unit: "lesson", lessonId: "hash-functions" },
+            lesson: { step: "warmup", index: i },
+          },
+        },
+        { kind: "warmup-next" }
+      )
+    }
+    expect(lessonRow("hash-functions")!.position).toEqual({
+      step: "guess",
+      index: 0,
+    })
+    expect(db.select().from(attempt).all()).toEqual([])
+    expect(db.select().from(conceptSchedule).all()).toEqual([])
+  })
+
+  it("ends the session at a step the budget has no room for", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const view = await getPlayerUnit(id)
+    await send(id, view, { kind: "read-done" }, randomUUID(), 14 * 60_000)
+    // The lesson moved on, so the next session resumes at Recall.
+    expect(lessonRow()!.position).toEqual({ step: "recall", phase: "write" })
+    expect(sessionRow(id)).toMatchObject({
+      position: { unit: "end", screen: "summary" },
+      endedAt: at,
+    })
+  })
+
+  async function atAnswers(index = 0) {
+    putLesson(db, ENC, L1, {
+      at: at - 864e5,
+      position: { step: "answers", index },
+    })
+    db.update(lessonProgress)
+      .set({
+        recallTicked: ["c-shared-key", "c-kerckhoffs"],
+        recallQueue: ["e-kerckhoffs-recall", "e-key-length-recall"],
+      })
+      .run()
+    // c-kerckhoffs was ticked, but its Recall exercise was forgotten.
+    db.insert(attempt)
+      .values({
+        id: randomUUID(),
+        sessionId: randomUUID(),
+        context: "recall",
+        courseId: ENC,
+        conceptId: "c-kerckhoffs",
+        exerciseId: "e-kerckhoffs-recall",
+        response: null,
+        correct: false,
+        confidence: "sure",
+        selfMark: null,
+        grade: "forgot",
+        isRetry: false,
+        day: "2026-11-23",
+        answeredAt: at - 864e5,
+      })
+      .run()
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    return id
+  }
+
+  it("sticks a note per board, then completes the lesson", async () => {
+    const id = await atAnswers()
+    const key = noteDraftKey(ENC, L1, "q2")
+    await saveDraftText({ key, text: "keys", updatedAt: 1 })
+    const view = await getPlayerUnit(id)
+    if (view.unit.kind !== "recall-exercises") throw new Error()
+    expect(view.unit).toMatchObject({ stage: "answers", pickingUp: true })
+    expect(view.unit.boards[0]).toMatchObject({
+      keyQuestionId: "q2",
+      draftKey: key,
+      draft: { text: "keys" },
+    })
+
+    await send(id, view, { kind: "note-stick", text: "one shared key" })
+    expect(db.select().from(answerNote).all()).toMatchObject([
+      { keyQuestionId: "q2", lessonId: L1, text: "one shared key" },
+    ])
+    expect(db.select().from(draft).all()).toEqual([])
+    expect(lessonRow()!.position).toEqual({ step: "answers", index: 1 })
+    expect(lessonRow()!.completedAt).toBeNull()
+
+    const second = await getPlayerUnit(id)
+    if (second.unit.kind !== "recall-exercises") throw new Error()
+    expect(second.unit.boardIndex).toBe(1)
+    await send(id, second, { kind: "note-stick", text: "open design" })
+    expect(lessonRow()).toMatchObject({
+      position: { step: "done" },
+      completedAt: at,
+      completedDay: DAY,
+    })
+    // Recalled concepts wait 2 days, the rest 1 (R2).
+    const sched = db.select().from(conceptSchedule).all()
+    expect(
+      Object.fromEntries(sched.map((r) => [r.conceptId, r.dueDay]))
+    ).toEqual({
+      "c-shared-key": "2026-11-26",
+      "c-kerckhoffs": "2026-11-25",
+      "c-key-length": "2026-11-25",
+    })
+
+    const done = await getPlayerUnit(id)
+    expect(done.frame).toMatchObject({
+      steps: { current: null },
+      skip: null,
+    })
+    if (done.unit.kind !== "recall-exercises") throw new Error()
+    expect(done.unit.complete).toEqual({
+      heading: "Lesson 1 complete",
+      line: "Next, Lesson 2: How can you tell that a file you downloaded is exactly the one its author published?",
+    })
+    await send(id, done, { kind: "continue" })
+    expect(sessionRow(id).position).toEqual({
+      unit: "lesson",
+      lessonId: "hash-functions",
+    })
+  })
+
+  it("Skip this step completes the lesson too", async () => {
+    const id = await atAnswers(1)
+    const view = await getPlayerUnit(id)
+    await send(id, view, { kind: "answers-skip" })
+    expect(lessonRow()!.position).toEqual({ step: "done" })
+    expect(db.select().from(conceptSchedule).all()).toHaveLength(3)
+    expect(db.select().from(answerNote).all()).toEqual([])
+  })
+
+  it("skips from the player and undoes it", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const view = await getPlayerUnit(id)
+    const skipId = randomUUID()
+    expect(await send(id, view, { kind: "skip-lesson" }, skipId)).toEqual({
+      ok: true,
+    })
+    expect(lessonRow()).toMatchObject({
+      skipped: true,
+      lastSessionId: id,
+      position: { step: "read" },
+    })
+    // The next target, never the lesson it just skipped (§7.6).
+    expect(sessionRow(id).position).toEqual({
+      unit: "lesson",
+      lessonId: "hash-functions",
+    })
+    expect(db.select().from(shownUpDay).all()).toEqual([{ day: DAY }])
+    // The next lesson loads, which gives it a row in this session.
+    await getPlayerUnit(id)
+    expect(lessonRow("hash-functions")).toMatchObject({ lastSessionId: id })
+
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({ ok: true })
+    expect(lessonRow()).toMatchObject({
+      skipped: false,
+      position: { step: "read" },
+    })
+    expect(sessionRow(id).position).toEqual({ unit: "lesson", lessonId: L1 })
+    // Nothing was done in the lesson the skip moved to: it is untouched again.
+    expect(lessonRow("hash-functions")).toBeUndefined()
+    // Nothing left to undo.
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({
+      ok: false,
+      stale: true,
+    })
+  })
+
+  it("undo puts back a lesson the skip moved to as it was", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    // Lesson 2 was skipped from the Syllabus before it was ever started.
+    db.insert(lessonProgress)
+      .values({
+        courseId: ENC,
+        lessonId: "hash-functions",
+        skipped: true,
+        position: null,
+        updatedAt: at - 864e5,
+      })
+      .run()
+    // Lesson 3 was entered in an earlier session and left at its start.
+    putLesson(db, ENC, "key-exchange", {
+      at: at - 2 * 864e5,
+      position: { step: "guess", index: 0 },
+      lastSessionId: "earlier",
+    })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const skipId = randomUUID()
+    await send(id, await getPlayerUnit(id), { kind: "skip-lesson" }, skipId)
+    // Lesson 3 is next: Lesson 2 is Skipped, so it waits (§7.6).
+    expect(sessionRow(id).position).toEqual({
+      unit: "lesson",
+      lessonId: "key-exchange",
+    })
+    await getPlayerUnit(id)
+    expect(lessonRow("key-exchange")).toMatchObject({ lastSessionId: id })
+
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({ ok: true })
+    expect(lessonRow("key-exchange")).toMatchObject({
+      lastSessionId: "earlier",
+      position: { step: "guess", index: 0 },
+      updatedAt: at - 2 * 864e5,
+    })
+    expect(lessonRow("hash-functions")).toMatchObject({
+      skipped: true,
+      position: null,
+    })
+    expect(sessionRow(id).skipUndo).toBeNull()
+  })
+
+  it("undo leaves the next lesson alone when it changed elsewhere", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const skipId = randomUUID()
+    await send(id, await getPlayerUnit(id), { kind: "skip-lesson" }, skipId)
+    await getPlayerUnit(id)
+    // Another tab skips Lesson 2 from the Syllabus.
+    db.update(lessonProgress)
+      .set({ skipped: true })
+      .where(eq(lessonProgress.lessonId, "hash-functions"))
+      .run()
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({ ok: true })
+    expect(lessonRow("hash-functions")).toMatchObject({ skipped: true })
+  })
+
+  it("undo restores a Syllabus-skipped lesson the skip moved to", async () => {
+    // Every other lesson is Skipped, so the first of them, Lesson 2, is
+    // next (§7.6).
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    for (const l of ["hash-functions", "key-exchange", "signatures"])
+      db.insert(lessonProgress)
+        .values({
+          courseId: ENC,
+          lessonId: l,
+          skipped: true,
+          position: null,
+          updatedAt: at - 864e5,
+        })
+        .run()
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const skipId = randomUUID()
+    await send(id, await getPlayerUnit(id), { kind: "skip-lesson" }, skipId)
+    expect(sessionRow(id).position).toEqual({
+      unit: "lesson",
+      lessonId: "hash-functions",
+    })
+    await getPlayerUnit(id)
+    expect(lessonRow("hash-functions")!.skipped).toBe(false)
+
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({ ok: true })
+    expect(lessonRow("hash-functions")).toMatchObject({
+      skipped: true,
+      position: null,
+      lastSessionId: null,
+    })
+  })
+
+  it("undo keeps a lesson the skip moved to once it was worked on", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const skipId = randomUUID()
+    await send(id, await getPlayerUnit(id), { kind: "skip-lesson" }, skipId)
+    await send(id, await getPlayerUnit(id), {
+      kind: "guess-lock",
+      optionId: "g-hash-length-same",
+    })
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({ ok: true })
+    expect(lessonRow("hash-functions")!.position).toEqual({
+      step: "guess",
+      index: 1,
+    })
+  })
+
+  it("undo reopens a session the skip ended", async () => {
+    // The course's only other lessons are done, so nothing is left.
+    for (const l of ["hash-functions", "key-exchange", "signatures"])
+      putLesson(db, ENC, l, { at: at - 864e5, day: "2026-11-23" })
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    const { id } = await startNewSession({ kind: "full_lesson", courseId: ENC })
+    const view = await getPlayerUnit(id)
+    const skipId = randomUUID()
+    await send(id, view, { kind: "skip-lesson" }, skipId)
+    expect(sessionRow(id)).toMatchObject({
+      position: { unit: "end", screen: "summary" },
+      endedAt: at,
+    })
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({ ok: true })
+    expect(sessionRow(id)).toMatchObject({
+      position: { unit: "lesson", lessonId: L1 },
+      endedAt: null,
+    })
+  })
+
+  it("undo does not reopen a session ended with ×", async () => {
+    putLesson(db, ENC, L1, { at: at - 864e5, position: { step: "read" } })
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    const skipId = randomUUID()
+    await send(id, await getPlayerUnit(id), { kind: "skip-lesson" }, skipId)
+    await exitPlayerSession(id, { activeMs: 2000, drafts: [] })
+    expect(await undoPlayerSkip(id, L1, skipId)).toEqual({
+      ok: false,
+      stale: true,
+    })
+    expect(sessionRow(id)).toMatchObject({
+      position: { unit: "end", screen: "summary" },
+      endedAt: at,
+    })
+    expect(lessonRow()!.skipped).toBe(true)
+  })
+
+  it("drops the drafts of boards skipped with text on them", async () => {
+    const id = await atAnswers()
+    await saveDraftText({
+      key: noteDraftKey(ENC, L1, "q1"),
+      text: "half a thought",
+      updatedAt: 1,
+    })
+    await send(id, await getPlayerUnit(id), { kind: "answers-skip" })
+    expect(db.select().from(draft).all()).toEqual([])
+  })
+
+  it("refuses to skip a lesson that is done", async () => {
+    const id = await atAnswers(1)
+    await send(id, await getPlayerUnit(id), { kind: "answers-skip" })
+    const done = await getPlayerUnit(id)
+    await expect(send(id, done, { kind: "skip-lesson" })).rejects.toThrow(
+      /done/
+    )
   })
 })
 

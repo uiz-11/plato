@@ -5,8 +5,10 @@ import "server-only"
 // records one event, choosing the next unit when a unit ends. Exiting and
 // drafts are here too.
 
+import { randomUUID } from "node:crypto"
+
 import type { Root as HastRoot } from "hast"
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, asc, desc, eq, sql } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { requireLearner } from "@/lib/auth/learner"
@@ -16,10 +18,12 @@ import {
   type RenderedExercise,
   type RenderedLesson,
 } from "@/lib/content/render"
-import type { Exercise } from "@/lib/content/schema"
+import type { Exercise, Lesson, Link } from "@/lib/content/schema"
 import {
+  answerNote,
   attempt,
   conceptSchedule,
+  type SkipUndo,
   draft,
   guessAnswer,
   lessonProgress,
@@ -36,15 +40,20 @@ import {
 } from "@/lib/engine/labels"
 import {
   advanceLesson,
+  celebrationLine,
+  completeLesson,
   enterLesson,
   firstLessonPosition,
   PositionError,
   samePosition,
   selectRecallExercises,
+  skipLesson,
   stepOf,
+  unskipLesson,
   warmupPrompts,
   warmupSource,
   type LessonEvent,
+  type LessonShape,
   type LessonStep,
 } from "@/lib/engine/lesson"
 import {
@@ -63,16 +72,19 @@ import {
 import {
   advanceVersion,
   applyReview,
+  lessonCompletionSchedules,
   reviewEventConcepts,
 } from "@/lib/engine/schedule"
 import {
   assembleSession,
+  budgetAllows,
   checkpointExerciseEstimate,
   endPosition,
   lessonUnitEstimate,
   nextSessionPosition,
   playerUnitKind,
   sessionTarget,
+  startsBudgetUnit,
   unitKey,
   wouldHoldWork,
   type NextUnitInput,
@@ -84,6 +96,8 @@ import {
   checkpointQueue,
   checkpointStatus,
   courseStatus,
+  lessonNumber,
+  lessonStatus,
   moduleById,
   nextTarget,
   skippedInSession,
@@ -125,7 +139,16 @@ export interface PlayerFrameView {
   /** Time left (elapsed for `full_lesson`), minutes used, or none. */
   timer: "live" | "used" | "none"
   /** The lesson steps row (WF-E), in a lesson unit. */
-  steps: { current: LessonStep | null; hasWarmup: boolean } | null
+  steps: {
+    lessonId: string
+    current: LessonStep | null
+    hasWarmup: boolean
+  } | null
+  /**
+   * *Mark as skipped* in ⋯, while a lesson that is not yet done is the
+   * current unit (§9.2); `number` names it in the toast.
+   */
+  skip: { lessonId: string; number: number } | null
 }
 
 /**
@@ -203,21 +226,89 @@ export interface RecallUnitView {
   exercises: Pick<Exercise, "id" | "pool" | "concepts">[]
 }
 
-/** Recall exercises (WF-F1 to WF-F3), then step 5 (T17). */
+/** Warm up (WF-E1): the source lesson's prompts, each with its answer. */
+export interface WarmupUnitView {
+  kind: "warmup"
+  courseId: string
+  lessonId: string
+  /** "Picking up where you stopped" (WF-E4.1). */
+  pickingUp: boolean
+  /** "from Lesson 2". */
+  sourceNumber: number
+  prompts: { prompt: HastRoot; answer: HastRoot }[]
+  index: number
+}
+
+/** Guess first (WF-E2): each guess with its options, in authored order. */
+export interface GuessUnitView {
+  kind: "guess"
+  courseId: string
+  lessonId: string
+  pickingUp: boolean
+  guesses: {
+    id: string
+    prompt: HastRoot
+    options: { id: string; text: HastRoot }[]
+  }[]
+  index: number
+}
+
+/** "Beyond this lesson" (§5.3, spec F4): ≈ Simplified and ○ Not covered. */
+export interface BeyondView {
+  simplified: { id: string; text: HastRoot; links: Link[] }[]
+  notCovered: { id: string; topic: string; why: string; links: Link[] }[]
+}
+
+/** Read (WF-E3): the brief with the learner's guesses, then Beyond. */
+export interface ReadUnitView {
+  kind: "read"
+  courseId: string
+  lessonId: string
+  pickingUp: boolean
+  /** "~7 min read". */
+  readMinutes: number
+  brief: BriefView
+  beyond: BeyondView
+}
+
+/** One board of step 5 (WF-E6): a key question the lesson advances. */
+export interface BoardView {
+  keyQuestionId: string
+  text: string
+  /** The question's earlier answer notes, oldest first. */
+  notes: { id: string; text: string; lessonLabel: string | null }[]
+  draftKey: string
+  draft: DraftView | null
+}
+
+/**
+ * Recall exercises (WF-F1 to WF-F3), then step 5 (WF-E6), then the
+ * lesson-complete screen (WF-E7): one unit (§8.4).
+ */
 export interface RecallExercisesUnitView {
   kind: "recall-exercises"
   courseId: string
   lessonId: string
   /** "Picking up where you stopped" (WF-E4.1). */
   pickingUp: boolean
+  /** Where in the unit the lesson is. */
+  stage: "exercises" | "answers" | "done"
   /** The exercises in `recall_queue`, a retry repeated where it was queued. */
   items: ExerciseItemView[]
+  /** The current exercise; past the last one after the exercises. */
   index: number
   answered: AnsweredView | null
   /** The lesson's own brief, by `briefKey`. */
   briefs: Record<string, BriefView>
   /** Each short answer's draft (§8.4 Typed text), by draft key. */
   drafts: Record<string, DraftView>
+  /** "Lesson 4", the label of the note being written. */
+  lessonLabel: string
+  /** One per key question the lesson advances. */
+  boards: BoardView[]
+  boardIndex: number
+  /** The celebration (WF-E7), once the lesson is done. */
+  complete: { heading: string; line: string | null } | null
 }
 
 export interface SummaryUnitView {
@@ -240,6 +331,9 @@ export interface PendingUnitView {
 
 export type PlayerUnitView =
   | ReviewUnitView
+  | WarmupUnitView
+  | GuessUnitView
+  | ReadUnitView
   | RecallUnitView
   | RecallExercisesUnitView
   | SummaryUnitView
@@ -388,7 +482,7 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
     hideTimer: settings.hideTimer,
   }
   const pos = row.position
-  const live = { timer: "live" as const, steps: null, tag: null }
+  const live = { timer: "live" as const, steps: null, tag: null, skip: null }
 
   if (pos.unit === "reviews") {
     const target = currentTarget(cp, row)
@@ -431,6 +525,13 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
     }
     const lessonPos = entered.row.position!
     const kind = playerUnitKind(pos, lessonPos)
+    const number = lessonNumber(cp.course, pos.lessonId)
+    const ctx = {
+      tx,
+      cp,
+      lessonId: pos.lessonId,
+      pickingUp: entered.pickingUp,
+    }
     return {
       ...base,
       expected: { session: pos, lesson: lessonPos },
@@ -439,28 +540,35 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
         ...live,
         title: lessonTitle(cp.course, pos.lessonId, loaded.lesson.title),
         subtitle: cp.course.title,
-        steps: { current: stepOf(lessonPos), hasWarmup },
+        steps: {
+          lessonId: pos.lessonId,
+          current: stepOf(lessonPos),
+          hasWarmup,
+        },
+        skip:
+          lessonPos.step === "done" ? null : { lessonId: pos.lessonId, number },
       },
       unit:
-        kind === "recall-write-tick"
-          ? recallUnit(
-              tx,
-              cp,
-              pos.lessonId,
-              entered.row.recallText,
-              lessonPos,
-              entered.pickingUp
-            )
-          : lessonPos.step === "recall" && lessonPos.phase === "exercises"
-            ? recallExercisesUnit(
-                tx,
-                cp,
-                pos.lessonId,
-                entered.row.recallQueue ?? [],
-                lessonPos,
-                entered.pickingUp
-              )
-            : { kind: "pending", unit: kind },
+        lessonPos.step === "warmup"
+          ? warmupUnit(ctx, lessonPos.index)
+          : lessonPos.step === "guess"
+            ? guessUnit(ctx, lessonPos.index)
+            : lessonPos.step === "read"
+              ? readUnit(ctx)
+              : kind === "recall-write-tick"
+                ? recallUnit(
+                    tx,
+                    cp,
+                    pos.lessonId,
+                    entered.row.recallText,
+                    lessonPos,
+                    entered.pickingUp
+                  )
+                : recallExercisesUnit(
+                    ctx,
+                    entered.row.recallQueue ?? [],
+                    lessonPos
+                  ),
     }
   }
 
@@ -495,6 +603,7 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
         tag: "complete",
         timer: "none",
         steps: null,
+        skip: null,
       },
       unit: { kind: "course-complete", courseTitle: title },
     }
@@ -509,6 +618,7 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
       tag: null,
       timer: "used",
       steps: null,
+      skip: null,
     },
     unit: summaryUnit(tx, row, cp, settings.sessionMinutes, day),
   }
@@ -647,31 +757,23 @@ function recallUnit(
 export const shortDraftKey = (courseId: string, exerciseId: string) =>
   `short:${courseId}:${exerciseId}`
 
-function recallExercisesUnit(
-  tx: Tx,
-  cp: CourseState,
-  lessonId: string,
-  queue: readonly string[],
-  position: Extract<LessonPosition, { phase: "exercises" }>,
+/** What every lesson unit builder needs. */
+interface LessonCtx {
+  tx: Tx
+  cp: CourseState
+  lessonId: string
   pickingUp: boolean
-): RecallExercisesUnitView {
-  const courseId = cp.course.id
-  const { lesson } = cp.loaded.lessonsById.get(lessonId)!
-  const rendered = renderedLesson(courseId, lessonId)
-  const items = queue.map((id): ExerciseItemView => {
-    const e = lesson.exercises.find((e) => e.id === id)
-    if (!e) throw new Error(`No exercise ${id} in ${lessonId}`)
-    const view = exerciseItem(rendered, e)
-    return e.type === "short"
-      ? { ...view, draftKey: shortDraftKey(courseId, e.id) }
-      : view
-  })
-  const drafts: Record<string, DraftView> = {}
-  for (const { draftKey } of items) {
-    const d = draftKey ? readDraft(tx, draftKey) : undefined
-    if (draftKey && d) drafts[draftKey] = d
-  }
-  const picks = tx
+}
+
+function lessonOf(cp: CourseState, lessonId: string) {
+  const loaded = cp.loaded.lessonsById.get(lessonId)
+  if (!loaded) throw new Error(`No lesson ${cp.course.id}:${lessonId}`)
+  return loaded
+}
+
+/** The learner's guesses in a lesson, guess id → option id (spec F4). */
+function guessPicks(db: Conn, courseId: string, lessonId: string) {
+  const picks = db
     .select({ guessId: guessAnswer.guessId, optionId: guessAnswer.optionId })
     .from(guessAnswer)
     .where(
@@ -681,24 +783,206 @@ function recallExercisesUnit(
       )
     )
     .all()
+  return Object.fromEntries(picks.map((p) => [p.guessId, p.optionId]))
+}
+
+/** The lesson's brief with the learner's guesses revealed (WF-E3). */
+function lessonBrief(db: Conn, courseId: string, lessonId: string): BriefView {
+  return {
+    courseId,
+    lesson: renderedLesson(courseId, lessonId),
+    guessPicks: guessPicks(db, courseId, lessonId),
+  }
+}
+
+/** The warm-up's prompts from its source lesson (§7.3). */
+function warmupOf(cp: CourseState, lessonId: string) {
+  const source = warmupSource(cp, lessonId)
+  if (source === null) return null
+  return {
+    sourceId: source,
+    prompts: warmupPrompts(lessonOf(cp, source).lesson),
+  }
+}
+
+function warmupUnit(
+  { cp, lessonId, pickingUp }: LessonCtx,
+  index: number
+): WarmupUnitView {
+  const w = warmupOf(cp, lessonId)
+  if (!w) throw new Error(`Lesson ${lessonId} has no warm-up`)
+  const rendered = renderedLesson(cp.course.id, w.sourceId)
+  return {
+    kind: "warmup",
+    courseId: cp.course.id,
+    lessonId,
+    pickingUp,
+    sourceNumber: lessonNumber(cp.course, w.sourceId),
+    prompts: w.prompts.map((p) => {
+      const r = rendered.concepts[p.conceptId]?.[p.promptIndex]
+      if (!r) throw new Error(`No prompt for ${p.conceptId}`)
+      return r
+    }),
+    index,
+  }
+}
+
+function guessUnit(
+  { cp, lessonId, pickingUp }: LessonCtx,
+  index: number
+): GuessUnitView {
+  const { lesson } = lessonOf(cp, lessonId)
+  const rendered = renderedLesson(cp.course.id, lessonId)
+  return {
+    kind: "guess",
+    courseId: cp.course.id,
+    lessonId,
+    pickingUp,
+    guesses: lesson.guesses.map((g) => {
+      const r = rendered.guesses[g.id]
+      if (!r) throw new Error(`No guess ${g.id}`)
+      return {
+        id: g.id,
+        prompt: r.prompt,
+        options: g.options.map((o) => ({ id: o.id, text: r.options[o.id]! })),
+      }
+    }),
+    index,
+  }
+}
+
+function beyondOf(lesson: Lesson, rendered: RenderedLesson): BeyondView {
+  return {
+    simplified: lesson.beyond.simplified.map((e) => ({
+      id: e.id,
+      text: rendered.simplified[e.id]!,
+      links: e.links,
+    })),
+    notCovered: lesson.beyond.notCovered.map((e) => ({
+      id: e.id,
+      topic: e.topic,
+      why: e.why,
+      links: e.links,
+    })),
+  }
+}
+
+function readUnit({ tx, cp, lessonId, pickingUp }: LessonCtx): ReadUnitView {
+  const loaded = lessonOf(cp, lessonId)
+  const brief = lessonBrief(tx, cp.course.id, lessonId)
+  return {
+    kind: "read",
+    courseId: cp.course.id,
+    lessonId,
+    pickingUp,
+    readMinutes: loaded.readMinutes,
+    brief,
+    beyond: beyondOf(loaded.lesson, brief.lesson),
+  }
+}
+
+/** The draft key of a step 5 sticky note (§6). */
+export const noteDraftKey = (
+  courseId: string,
+  lessonId: string,
+  keyQuestionId: string
+) => `note:${courseId}:${lessonId}:${keyQuestionId}`
+
+function boardsOf(tx: Tx, cp: CourseState, lesson: Lesson): BoardView[] {
+  const courseId = cp.course.id
+  const notes = tx
+    .select()
+    .from(answerNote)
+    .where(eq(answerNote.courseId, courseId))
+    .orderBy(asc(answerNote.createdAt), asc(answerNote.id))
+    .all()
+  return lesson.keyQuestions.map((qid) => {
+    const q = cp.course.keyQuestions.find((k) => k.id === qid)
+    if (!q) throw new Error(`No key question ${qid}`)
+    const draftKey = noteDraftKey(courseId, lesson.id, qid)
+    return {
+      keyQuestionId: qid,
+      text: q.text,
+      notes: notes
+        .filter((n) => n.keyQuestionId === qid)
+        .map((n) => ({
+          id: n.id,
+          text: n.text,
+          lessonLabel:
+            n.lessonId && cp.loaded.lessonsById.has(n.lessonId)
+              ? `Lesson ${lessonNumber(cp.course, n.lessonId)}`
+              : null,
+        })),
+      draftKey,
+      draft: readDraft(tx, draftKey),
+    }
+  })
+}
+
+function recallExercisesUnit(
+  { tx, cp, lessonId, pickingUp }: LessonCtx,
+  queue: readonly string[],
+  position: LessonPosition
+): RecallExercisesUnitView {
+  const courseId = cp.course.id
+  const { lesson } = lessonOf(cp, lessonId)
+  const rendered = renderedLesson(courseId, lessonId)
+  const items = queue.map((id): ExerciseItemView => {
+    const e = lesson.exercises.find((e) => e.id === id)
+    if (!e) throw new Error(`No exercise ${id} in ${lessonId}`)
+    const view = exerciseItem(rendered, e)
+    return e.type === "short"
+      ? { ...view, draftKey: shortDraftKey(courseId, e.id) }
+      : view
+  })
+  const stage =
+    position.step === "recall"
+      ? "exercises"
+      : position.step === "answers"
+        ? "answers"
+        : "done"
+  const drafts: Record<string, DraftView> = {}
+  if (stage === "exercises")
+    for (const { draftKey } of items) {
+      const d = draftKey ? readDraft(tx, draftKey) : undefined
+      if (draftKey && d) drafts[draftKey] = d
+    }
+  const number = lessonNumber(cp.course, lessonId)
   return {
     kind: "recall-exercises",
     courseId,
     lessonId,
     pickingUp,
+    stage,
     items,
-    index: position.index,
-    answered: position.answered ? readAnswered(tx, position.answered) : null,
+    index:
+      position.step === "recall" && position.phase === "exercises"
+        ? position.index
+        : items.length,
+    answered:
+      position.step === "recall" &&
+      position.phase === "exercises" &&
+      position.answered
+        ? readAnswered(tx, position.answered)
+        : null,
     briefs: {
       [briefKey(courseId, lessonId)]: {
         courseId,
         lesson: rendered,
-        guessPicks: Object.fromEntries(
-          picks.map((p) => [p.guessId, p.optionId])
-        ),
+        guessPicks: guessPicks(tx, courseId, lessonId),
       },
     },
     drafts,
+    lessonLabel: `Lesson ${number}`,
+    boards: stage === "done" ? [] : boardsOf(tx, cp, lesson),
+    boardIndex: position.step === "answers" ? position.index : 0,
+    complete:
+      stage === "done"
+        ? {
+            heading: `Lesson ${number} complete`,
+            line: celebrationLine(cp, lesson),
+          }
+        : null,
   }
 }
 
@@ -752,6 +1036,7 @@ interface Applied {
   position: SessionPosition
   reviewQueue?: ReviewQueueItem[]
   checkpointQueue?: string[] | null
+  skipUndo?: SkipUndo
 }
 
 const bad = (message: string) => new DalError("bad_event", message)
@@ -818,6 +1103,7 @@ export async function applyPlayerEvent(
         ...(applied.checkpointQueue !== undefined
           ? { checkpointQueue: applied.checkpointQueue }
           : {}),
+        ...(applied.skipUndo ? { skipUndo: applied.skipUndo } : {}),
         ...(ending ? { endedAt: at } : {}),
       })
       .where(eq(session.id, row.id))
@@ -940,6 +1226,8 @@ function applyLessonEvent(
   const current = readLessonRow(tx, ref)
   if (!cp || !loaded || !current?.position)
     throw new Error(`Lesson ${courseId}:${pos.lessonId} is not loaded`)
+  const from = current.position
+  const { lesson } = loaded
   const { event } = env
   const where = and(
     eq(lessonProgress.courseId, courseId),
@@ -947,26 +1235,182 @@ function applyLessonEvent(
   )
 
   if (event.kind === "continue") {
-    if (current.position.step !== "done") throw bad("The lesson is not done")
+    if (from.step !== "done") throw bad("The lesson is not done")
     return afterTarget(tx, row, "lesson")
   }
 
-  const shape = {
-    warmupCount: 0,
-    guessCount: loaded.lesson.guesses.length,
+  // *Mark as skipped* in the player's ⋯ menu (§7.3, §7.7): the lesson keeps
+  // its position, and the session moves on to its next target.
+  if (event.kind === "skip-lesson") {
+    if (lessonStatus(current) === "completed") throw bad("The lesson is done")
+    const skipped = skipLesson(current, pos.lessonId, {
+      now: at,
+      sessionId: row.id,
+    })
+    tx.update(lessonProgress)
+      .set({
+        skipped: skipped.skipped,
+        lastSessionId: skipped.lastSessionId,
+        updatedAt: skipped.updatedAt,
+      })
+      .where(where)
+      .run()
+    const next = afterTarget(tx, row, "skip-lesson")
+    // The lesson the session moves on to, as it is before it loads, so Undo
+    // can put it back (`undoPlayerSkip`).
+    const movedTo =
+      next.position.unit === "lesson" ? next.position.lessonId : null
+    const before = movedTo
+      ? (tx
+          .select()
+          .from(lessonProgress)
+          .where(
+            and(
+              eq(lessonProgress.courseId, courseId),
+              eq(lessonProgress.lessonId, movedTo)
+            )
+          )
+          .get() ?? null)
+      : null
+    return {
+      ...next,
+      skipUndo: {
+        skipEventId: env.id,
+        next: movedTo ? { lessonId: movedTo, before } : null,
+      },
+    }
+  }
+
+  const warmup = warmupOf(cp, pos.lessonId)
+  const shape: LessonShape = {
+    warmupCount: warmup?.prompts.length ?? 0,
+    guessCount: lesson.guesses.length,
     recallQueueLength: current.recallQueue?.length ?? 0,
-    keyQuestionCount: loaded.lesson.keyQuestions.length,
+    keyQuestionCount: lesson.keyQuestions.length,
   }
   const advance = (e: LessonEvent) => {
     try {
-      return advanceLesson(current.position!, e, shape)
+      return advanceLesson(from, e, shape)
     } catch (error) {
       if (error instanceof PositionError) throw bad(error.message)
       throw error
     }
   }
+  const save = (position: LessonPosition) =>
+    tx
+      .update(lessonProgress)
+      .set({ position, updatedAt: at })
+      .where(where)
+      .run()
+
+  /**
+   * After a move to `to`: a step that starts a new budget unit starts only
+   * if the budget allows it (§7.7), otherwise the session ends there, and
+   * the lesson resumes at `to` next time.
+   */
+  const moved = (to: LessonPosition): Applied => {
+    if (!startsBudgetUnit(from, to)) return { position: pos }
+    const fits = budgetAllows({
+      kind: row.kind,
+      minutes: row.minutes,
+      activeMs: row.activeMs,
+      estimateSeconds: lessonUnitEstimate(to, {
+        ...shape,
+        readMinutes: loaded.readMinutes,
+        recallQueueLength: current.recallQueue?.length ?? null,
+      }),
+    })
+    return fits
+      ? { position: pos }
+      : { position: endPosition(sessionMadeComplete(tx, row, cp)) }
+  }
+
+  /** Step 5 finished or skipped: the lesson is *Completed* (§7.3, R1). */
+  const complete = (): Applied => {
+    const done = completeLesson(current, { now: at, day })
+    tx.update(lessonProgress)
+      .set({
+        skipped: done.skipped,
+        position: done.position,
+        completedAt: done.completedAt,
+        completedDay: done.completedDay,
+        updatedAt: done.updatedAt,
+      })
+      .where(where)
+      .run()
+    const conceptsOf = new Map(lesson.exercises.map((e) => [e.id, e.concepts]))
+    const results = tx
+      .select({
+        exerciseId: attempt.exerciseId,
+        grade: attempt.grade,
+        isRetry: attempt.isRetry,
+      })
+      .from(attempt)
+      .where(and(eq(attempt.courseId, courseId), eq(attempt.context, "recall")))
+      .all()
+      .flatMap((a) => {
+        const concepts = a.exerciseId ? conceptsOf.get(a.exerciseId) : undefined
+        return concepts && a.grade
+          ? [{ concepts, grade: a.grade, isRetry: a.isRetry }]
+          : []
+      })
+    for (const s of lessonCompletionSchedules(
+      lesson,
+      current.recallTicked ?? [],
+      results,
+      day
+    ))
+      tx.insert(conceptSchedule)
+        .values({ courseId, ...s })
+        .onConflictDoNothing()
+        .run()
+    // Boards skipped with text on them: the notes were never stuck.
+    for (const qid of lesson.keyQuestions)
+      tx.delete(draft)
+        .where(eq(draft.key, noteDraftKey(courseId, pos.lessonId, qid)))
+        .run()
+    // The unit stays open on the lesson-complete screen (§8.4).
+    return { position: pos }
+  }
 
   switch (event.kind) {
+    case "warmup-next": {
+      const position = advance({ kind: "warmup-next" })
+      save(position)
+      return moved(position)
+    }
+    case "guess-lock": {
+      const position = advance({ kind: "guess-lock" })
+      if (from.step !== "guess") throw bad("Not at a guess")
+      const guess = lesson.guesses[from.index]
+      if (!guess) throw new Error(`No guess at ${from.index}`)
+      if (!guess.options.some((o) => o.id === event.optionId))
+        throw bad(`${event.optionId} is not an option of ${guess.id}`)
+      tx.insert(guessAnswer)
+        .values({
+          courseId,
+          lessonId: pos.lessonId,
+          guessId: guess.id,
+          optionId: event.optionId,
+          answeredAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [
+            guessAnswer.courseId,
+            guessAnswer.lessonId,
+            guessAnswer.guessId,
+          ],
+          set: { optionId: event.optionId, answeredAt: at },
+        })
+        .run()
+      save(position)
+      return moved(position)
+    }
+    case "read-done": {
+      const position = advance({ kind: "read-done" })
+      save(position)
+      return moved(position)
+    }
     case "recall-write": {
       const position = advance({ kind: "recall-write" })
       tx.update(lessonProgress)
@@ -980,9 +1424,9 @@ function applyLessonEvent(
     }
     case "recall-tick": {
       const position = advance({ kind: "recall-tick" })
-      const conceptIds = loaded.lesson.concepts.map((c) => c.id)
+      const conceptIds = lesson.concepts.map((c) => c.id)
       const ticked = conceptIds.filter((id) => event.ticked.includes(id))
-      const queue = selectRecallExercises(loaded.lesson, ticked)
+      const queue = selectRecallExercises(lesson, ticked)
       tx.update(lessonProgress)
         .set({
           recallTicked: ticked,
@@ -1001,7 +1445,7 @@ function applyLessonEvent(
         throw bad("Not at a Recall exercise")
       const queue = current.recallQueue ?? []
       const id = queue[position.index]
-      const exercise = loaded.lesson.exercises.find((e) => e.id === id)
+      const exercise = lesson.exercises.find((e) => e.id === id)
       if (!exercise) throw new Error(`No Recall exercise at ${position.index}`)
       let marked
       try {
@@ -1042,16 +1486,39 @@ function applyLessonEvent(
       return { position: pos }
     }
     case "answer-next": {
-      const position = advance({ kind: "answer-next" })
-      tx.update(lessonProgress)
-        .set({ position, updatedAt: at })
-        .where(where)
-        .run()
+      save(advance({ kind: "answer-next" }))
       return { position: pos }
+    }
+    case "note-stick": {
+      const position = advance({ kind: "note-stick" })
+      if (from.step !== "answers") throw bad("Not at a board")
+      const qid = lesson.keyQuestions[from.index]
+      if (!qid) throw new Error(`No board at ${from.index}`)
+      tx.insert(answerNote)
+        .values({
+          id: randomUUID(),
+          courseId,
+          keyQuestionId: qid,
+          lessonId: pos.lessonId,
+          text: event.text,
+          createdAt: at,
+          updatedAt: at,
+        })
+        .run()
+      tx.delete(draft)
+        .where(eq(draft.key, noteDraftKey(courseId, pos.lessonId, qid)))
+        .run()
+      if (position.step === "done") return complete()
+      save(position)
+      return { position: pos }
+    }
+    case "answers-skip": {
+      advance({ kind: "answers-skip" })
+      return complete()
     }
     default:
       throw bad(
-        `${(event as { kind: string }).kind} is not handled in a lesson yet`
+        `${(event as { kind: string }).kind} does not apply in a lesson`
       )
   }
 }
@@ -1140,9 +1607,120 @@ export async function exitPlayerSession(
       .set({
         activeMs,
         position: endPosition(sessionMadeComplete(tx, row, cp)),
+        // No event ended it, so an Undo cannot reopen it (`undoPlayerSkip`).
+        lastEventId: null,
         endedAt: at,
       })
       .where(eq(session.id, row.id))
       .run()
   })
+}
+
+/**
+ * Undo on the player's "Lesson N skipped" toast (§8.3, §7.7): clears
+ * `skipped` (§7.3) and sets the session position back to the lesson, which
+ * resumes at its saved position. A session that the skip ended is reopened,
+ * while it is still the most recent one and nothing has happened since: its
+ * last event is still `skipEventId` (× clears it). Stale when the lesson is
+ * no longer skipped by this session, or the session ended otherwise.
+ *
+ * The lesson the skip moved on to is put back as it was before the skip
+ * when nothing was done in it since (`restoreSkippedTo`), so it does not
+ * show as touched in this session.
+ */
+export async function undoPlayerSkip(
+  sessionId: string,
+  lessonId: string,
+  skipEventId: string
+): Promise<EventResult> {
+  await requireLearner()
+  const at = now()
+  return getDb().transaction((tx): EventResult => {
+    const row = readSession(tx, sessionId)
+    if (!row) throw new DalError("unknown_session", `No session ${sessionId}`)
+    if (!row.courseId) throw bad("The session has no course")
+    const ref = { courseId: row.courseId, lessonId }
+    const current = readLessonRow(tx, ref)
+    if (
+      lessonStatus(current) !== "skipped" ||
+      current!.lastSessionId !== row.id
+    )
+      return { ok: false, stale: true }
+    if (row.endedAt !== null) {
+      const latest = tx
+        .select({ id: session.id })
+        .from(session)
+        .orderBy(desc(session.startedAt), desc(sql`rowid`))
+        .limit(1)
+        .get()
+      if (latest?.id !== row.id || row.lastEventId !== skipEventId)
+        return { ok: false, stale: true }
+    }
+    restoreSkippedTo(tx, row, skipEventId)
+    const where = and(
+      eq(lessonProgress.courseId, ref.courseId),
+      eq(lessonProgress.lessonId, lessonId)
+    )
+    const next = unskipLesson(current, at)
+    if (next === null) tx.delete(lessonProgress).where(where).run()
+    else
+      tx.update(lessonProgress)
+        .set({ skipped: next.skipped, updatedAt: next.updatedAt })
+        .where(where)
+        .run()
+    tx.update(session)
+      .set({
+        position: { unit: "lesson", lessonId },
+        endedAt: null,
+        skipUndo: null,
+      })
+      .where(eq(session.id, row.id))
+      .run()
+    return { ok: true }
+  })
+}
+
+/**
+ * Puts the lesson a skip moved on to back as it was before the skip, when
+ * the session is still on it and it is still where loading put it: at its
+ * position from before, or at its first position if it had none. Loading
+ * it only set `last_session_id`, cleared `skipped` and gave a new row its
+ * first position, so restoring the snapshot undoes exactly that.
+ */
+function restoreSkippedTo(tx: Tx, row: SessionRow, skipEventId: string) {
+  const undo = row.skipUndo
+  const pos = row.position
+  if (
+    !undo?.next ||
+    undo.skipEventId !== skipEventId ||
+    pos.unit !== "lesson" ||
+    pos.lessonId !== undo.next.lessonId ||
+    !row.courseId
+  )
+    return
+  const courseId = row.courseId
+  const { lessonId, before } = undo.next
+  const cp = loadCourseState(tx, courseId)
+  const now = readLessonRow(tx, { courseId, lessonId })
+  // Still exactly as loading left it: not skipped again, not completed,
+  // last loaded in this session (a change from elsewhere since wins).
+  if (
+    !cp ||
+    !now?.position ||
+    now.completedAt !== null ||
+    now.skipped ||
+    now.lastSessionId !== row.id
+  )
+    return
+  const untouched = samePosition(
+    now.position,
+    before?.position ?? firstLessonPosition(warmupSource(cp, lessonId) !== null)
+  )
+  if (!untouched) return
+  const where = and(
+    eq(lessonProgress.courseId, courseId),
+    eq(lessonProgress.lessonId, lessonId)
+  )
+  if (before === null) tx.delete(lessonProgress).where(where).run()
+  else tx.update(lessonProgress).set(before).where(where).run()
 }
