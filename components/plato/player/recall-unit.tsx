@@ -10,6 +10,7 @@ import { selectRecallExercises } from "@/lib/engine/lesson"
 import type { Exercise } from "@/lib/content/schema"
 import type { SessionPosition } from "@/lib/engine/types"
 
+import { ActionBar } from "./action-bar"
 import {
   forgetLocalDraft,
   useDraft,
@@ -126,7 +127,7 @@ function RecallWrite({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h2 id={id} className="text-lg font-medium">
+        <h2 id={id} tabIndex={-1} className="text-lg font-medium outline-none">
           What do you remember?
         </h2>
         <p id={`${id}-help`} className="text-sm text-muted-foreground">
@@ -141,7 +142,7 @@ function RecallWrite({
         onBlur={blur}
         className="min-h-40"
       />
-      <div className="mt-auto">
+      <ActionBar>
         <Button
           size="lg"
           className="min-h-11 w-full md:w-auto"
@@ -152,7 +153,7 @@ function RecallWrite({
         >
           Check
         </Button>
-      </div>
+      </ActionBar>
     </>
   )
 }
@@ -221,7 +222,7 @@ function RecallTick({
           ))}
         </ul>
       </div>
-      <div className="mt-auto">
+      <ActionBar>
         <Button
           size="lg"
           className="min-h-11 w-full md:w-auto"
@@ -230,7 +231,7 @@ function RecallTick({
         >
           {recallTickButton(missed, queue.length)}
         </Button>
-      </div>
+      </ActionBar>
     </>
   )
 }

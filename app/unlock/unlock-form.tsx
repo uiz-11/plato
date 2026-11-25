@@ -27,6 +27,7 @@ export function UnlockForm({ next }: { next: string }) {
           required
           aria-invalid={state.error ? true : undefined}
           aria-describedby={state.error ? "passcode-error" : undefined}
+          className="h-11 md:h-9"
         />
         {/* role="alert" announces on insert. Hiding it while pending re-inserts
             it after each failed try, so a repeated error is announced too. */}
@@ -40,7 +41,7 @@ export function UnlockForm({ next }: { next: string }) {
           </p>
         )}
       </div>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} className="min-h-11 md:min-h-9">
         {pending ? "Unlocking…" : "Unlock"}
       </Button>
     </form>

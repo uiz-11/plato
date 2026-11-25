@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { guessItemLabel, warmupItemLabel } from "@/lib/engine/labels"
 import type { LessonPosition, SessionPosition } from "@/lib/engine/types"
 
+import { ActionBar } from "./action-bar"
 import { Options } from "./exercise"
 import { RecallPrompt } from "./recall-prompt"
 import { PickingUp } from "./recall-unit"
@@ -166,7 +167,7 @@ export function GuessUnit({
         onChange={setPicked}
         marked={null}
       />
-      <div className="sticky bottom-0 mt-auto bg-background py-2 md:static md:py-0">
+      <ActionBar>
         <Button
           size="lg"
           className="min-h-11 w-full md:w-auto"
@@ -175,7 +176,7 @@ export function GuessUnit({
         >
           Lock in guess
         </Button>
-      </div>
+      </ActionBar>
     </div>
   )
 }
@@ -207,6 +208,9 @@ export function ReadUnit({
       {pickingUp ? <PickingUp /> : null}
       <p className="text-xs text-muted-foreground">~{readMinutes} min read</p>
       <article className="min-w-0">{children}</article>
+      {/* Not pinned: §9 Phone pins the submit, confidence and Next buttons,
+          and a pinned Done reading would cover the brief and end Read on a
+          stray tap. */}
       <div className="mt-2">
         <Button
           size="lg"

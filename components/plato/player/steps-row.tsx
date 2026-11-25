@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useRef } from "react"
+
 import { STEP_LABEL } from "@/lib/engine/labels"
 import type { LessonStep } from "@/lib/engine/lesson"
 import { cn } from "@/lib/utils"
@@ -40,17 +42,32 @@ export function StepsRow({
   current: LessonStep | null
   hasWarmup: boolean
 }) {
-  const { lessonStep } = usePlayer()
+  const player = usePlayer()
+  const { lessonStep } = player
   const current =
     lessonStep && lessonStep.lessonId === lessonId ? lessonStep.step : loaded
   const at = current === null ? STEPS.length : STEPS.indexOf(current)
+  const label =
+    current === null
+      ? "All steps done"
+      : `Step ${at + 1} of 5 · ${STEP_LABEL[current]}`
+
+  // Step changes are announced (WF-J): moving on inside the lesson, or
+  // arriving at it from the unit before, but not a page load. The lesson
+  // complete screen announces itself.
+  const said = useRef<string | null>(null)
+  useEffect(() => {
+    const was = said.current
+    said.current = label
+    if (current === null || was === label) return
+    if (was === null && !player.arrived()) return
+    player.announce(label)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label])
+
   return (
     <div>
-      <p className="text-xs text-muted-foreground md:hidden">
-        {current === null
-          ? "All steps done"
-          : `Step ${at + 1} of 5 · ${STEP_LABEL[current]}`}
-      </p>
+      <p className="text-xs text-muted-foreground md:hidden">{label}</p>
       <ol aria-label="Lesson steps" className="hidden gap-1 md:flex">
         {STEPS.map((step, i) => {
           const none = step === "warmup" && !hasWarmup

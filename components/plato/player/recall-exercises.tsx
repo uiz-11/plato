@@ -12,6 +12,7 @@ import { isWrongSure, requeueWrongSure } from "@/lib/engine/marking"
 import type { LessonPosition, SessionPosition } from "@/lib/engine/types"
 
 import { StickyNote } from "../sticky-note"
+import { ActionBar } from "./action-bar"
 import { Celebration } from "./celebration"
 import {
   ExerciseCard,
@@ -359,7 +360,8 @@ function Board({
           </li>
         </ul>
       </section>
-      <div className="sticky bottom-0 mt-auto flex flex-col-reverse gap-2 bg-background py-2 md:static md:flex-row md:py-0">
+      {/* Visual order is the focus order: Stick it last, nearest the thumb. */}
+      <ActionBar className="flex flex-col gap-2 md:flex-row">
         <Button
           size="lg"
           variant="outline"
@@ -382,7 +384,7 @@ function Board({
         >
           Stick it
         </Button>
-      </div>
+      </ActionBar>
     </>
   )
 }

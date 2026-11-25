@@ -83,6 +83,10 @@ export function PlayerFrame({
   const [exiting, startExit] = useTransition()
   const [, startSkip] = useTransition()
   const skipToasts = useRef(new Set<string | number>())
+  // After *Mark as skipped* the next unit takes focus (ArrivalFocus), so the
+  // closing menu must not hand it back to ⋯.
+  const skipChosen = useRef(false)
+  const more = useRef<HTMLButtonElement>(null)
   // The toast's Undo belongs to this session's player: leaving it (Back to
   // Today, a new session) takes the toast away.
   useEffect(
@@ -115,7 +119,18 @@ export function PlayerFrame({
     const id = newEventId()
     startSkip(async () => {
       const ok = await player.finish({ kind: "skip-lesson" }, expected, { id })
-      if (!ok) return
+      if (!ok) {
+        // No new unit took focus, and the menu will not restore it: focus is
+        // on the page, or still in the menu while it animates closed.
+        const active = document.activeElement
+        if (
+          !active ||
+          active === document.body ||
+          active.closest('[role="menu"]')
+        )
+          more.current?.focus()
+        return
+      }
       const toastId = toast(lessonSkippedToast(s.number), {
         // Long enough to reach Undo by keyboard or screen reader.
         duration: 10_000,
@@ -139,7 +154,10 @@ export function PlayerFrame({
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background px-2 py-2 md:px-4">
+      <header
+        data-slot="player-header"
+        className="sticky top-0 z-10 flex h-(--player-header-h) items-center gap-2 border-b bg-background px-2 md:px-4"
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -179,6 +197,7 @@ export function PlayerFrame({
               <Button
                 variant="ghost"
                 size="icon"
+                ref={more}
                 aria-label="More"
                 className="size-11 shrink-0 md:size-8"
               />
@@ -186,14 +205,29 @@ export function PlayerFrame({
           >
             <EllipsisIcon aria-hidden />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem onClick={toggleTimer}>
+          <DropdownMenuContent
+            align="end"
+            className="w-40"
+            finalFocus={() => {
+              const restore = !skipChosen.current
+              skipChosen.current = false
+              return restore
+            }}
+          >
+            <DropdownMenuItem
+              className="min-h-11 md:min-h-0"
+              onClick={toggleTimer}
+            >
               {hidden ? "Show timer" : "Hide timer"}
             </DropdownMenuItem>
             {skip ? (
               <DropdownMenuItem
+                className="min-h-11 md:min-h-0"
                 disabled={player.busy}
-                onClick={() => skipLesson(skip)}
+                onClick={() => {
+                  skipChosen.current = true
+                  skipLesson(skip)
+                }}
               >
                 Mark as skipped
               </DropdownMenuItem>
@@ -201,7 +235,10 @@ export function PlayerFrame({
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-6">
+      <main
+        data-slot="player-main"
+        className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-6"
+      >
         {progress}
         {children}
       </main>

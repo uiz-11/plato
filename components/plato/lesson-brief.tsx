@@ -8,6 +8,7 @@ import type { Link } from "@/lib/content/schema"
 import type { BeyondView, BriefView } from "@/lib/dal/player"
 
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 import { Brief, renderContent, type ContentContext } from "./content"
 
@@ -27,9 +28,14 @@ export function LessonBrief({ brief }: { brief: BriefView }) {
         components: {
           h1: (p: ComponentProps<"h1">) => (
             <>
+              {/* Focusable, so arriving at Read focuses it (WF-J). */}
               <h1
-                className="mb-4 text-2xl font-semibold tracking-tight"
+                tabIndex={-1}
                 {...p}
+                className={cn(
+                  "mb-4 text-2xl font-semibold tracking-tight outline-none",
+                  p.className
+                )}
               />
               <p data-slot="why-this-matters" className="my-3">
                 <span className="font-medium">Why this matters:</span> {why}
@@ -52,7 +58,7 @@ function GoDeeper({ links }: { links: Link[] }) {
             href={l.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-foreground underline underline-offset-4"
+            className="inline-flex min-h-11 items-center font-medium text-foreground underline underline-offset-4 md:min-h-0"
           >
             {l.title}
           </a>

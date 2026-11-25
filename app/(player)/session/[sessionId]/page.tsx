@@ -27,6 +27,7 @@ import {
   type ReviewItem,
 } from "@/components/plato/player/review-block"
 import {
+  ArrivalFocus,
   PlayerRuntimeProvider,
   UnitBoundary,
 } from "@/components/plato/player/runtime"
@@ -77,6 +78,9 @@ export default async function SessionPage(
           <Unit
             key={`${view.unitKey}|${JSON.stringify(view.expected)}`}
             view={view}
+          />
+          <ArrivalFocus
+            key={`focus|${view.unitKey}|${JSON.stringify(view.expected)}`}
           />
         </UnitBoundary>
       </PlayerFrame>

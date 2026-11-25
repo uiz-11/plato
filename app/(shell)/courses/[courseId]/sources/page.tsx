@@ -40,7 +40,7 @@ export default async function SourcesPage(
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-sm underline-offset-4 focus-ring hover:underline"
+                      className="block min-h-11 rounded-sm py-1 underline-offset-4 focus-ring hover:underline md:min-h-0 md:py-0"
                     >
                       <span className="text-muted-foreground">
                         {s.publisher} ·{" "}

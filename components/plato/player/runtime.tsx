@@ -89,6 +89,12 @@ interface PlayerRuntime {
   setDraft: (draft: DraftCopy) => void
   clearDraft: (key: string) => void
   announce: (text: string) => void
+  /**
+   * Whether this page has sent a unit's last event: a unit that mounts
+   * after that arrived from the one before, not from a page load, so it
+   * takes focus (WF-J).
+   */
+  arrived: () => boolean
   saving: boolean
 }
 
@@ -181,6 +187,7 @@ export function PlayerRuntimeProvider({
   const [message, setMessage] = useState("")
   const drafts = useRef(new Map<string, DraftCopy>())
   const position = useRef<ExpectedPosition | null>(null)
+  const arrived = useRef(false)
   const [lessonStep, setLessonStep] =
     useState<PlayerRuntime["lessonStep"]>(undefined)
   const [busy, setBusy] = useState(false)
@@ -234,6 +241,8 @@ export function PlayerRuntimeProvider({
         await exclusive(async () => {
           // An earlier event was rejected: the page is already reloading.
           if (!(await outbox.drainClean())) return
+          // Before sending: the next unit can mount before this resolves.
+          arrived.current = true
           const env = envelope(event, expected, opts?.id)
           const result = await outbox.sendNow(() => finishUnit(sessionId, env))
           if (!result.ok) rejected(result)
@@ -259,6 +268,7 @@ export function PlayerRuntimeProvider({
       undoSkip: (lessonId, skipEventId) =>
         exclusive(async () => {
           if (!(await outbox.drainClean())) return
+          arrived.current = true
           const result = await outbox.sendNow(() =>
             undoSkip(sessionId, lessonId, skipEventId)
           )
@@ -281,6 +291,7 @@ export function PlayerRuntimeProvider({
       clearDraft(key) {
         drafts.current.delete(key)
       },
+      arrived: () => arrived.current,
       announce(text) {
         // The same text twice in a row would not be announced again.
         setMessage((m) => (m === text ? `${text}\u00a0` : text))
@@ -302,7 +313,12 @@ export function PlayerRuntimeProvider({
   return (
     <Ctx value={runtime}>
       {children}
-      <div aria-live="polite" role="status" className="sr-only">
+      <div
+        aria-live="polite"
+        role="status"
+        data-slot="player-announcer"
+        className="sr-only"
+      >
         {message}
       </div>
     </Ctx>
@@ -317,6 +333,52 @@ export function PlayerRuntimeProvider({
 export function UnitBoundary({ children }: { children: React.ReactNode }) {
   const { resync } = usePlayer()
   return <Fragment key={resync}>{children}</Fragment>
+}
+
+/**
+ * Focus for a unit that arrived from the one before (WF-J): the button that
+ * ended the last unit is gone, so focus falls back to the page. Then, and
+ * when it is left in an overlay on its way out, it goes to the unit's first
+ * heading, which each unit makes focusable (`tabIndex={-1}`). Render it after
+ * the unit, keyed with it, so it runs after the unit's own effects.
+ */
+export function ArrivalFocus() {
+  const player = usePlayer()
+  useEffect(() => {
+    if (!player.arrived()) return
+    // Focus a learner put in the player stays: in the unit (which may have
+    // moved it itself), the header, or a menu or dialog that is still open.
+    // Anywhere else it is lost or about to be: the page, the closing ⋯ menu
+    // that skipped the lesson, or a toast's Undo, which leaves with its toast.
+    const main = document.querySelector<HTMLElement>(
+      '[data-slot="player-main"]'
+    )
+    if (!main) return
+    const active = document.activeElement
+    if (
+      active &&
+      active !== document.body &&
+      (main.contains(active) ||
+        active.closest('[data-slot="player-header"]') ||
+        active.closest(
+          '[role="menu"]:not([data-closed]), [role="dialog"]:not([data-closed])'
+        ))
+    )
+      return
+    const heading = main.querySelector<HTMLElement>("h1, h2")
+    if (process.env.NODE_ENV !== "production") {
+      if (!heading) console.warn("ArrivalFocus: the unit has no h1 or h2")
+      else if (!heading.hasAttribute("tabindex"))
+        console.warn(
+          "ArrivalFocus: the unit's first heading needs tabIndex={-1}",
+          heading
+        )
+    }
+    heading?.focus()
+    // Only on mount: one unit, one arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
 }
 
 // --- Drafts -----------------------------------------------------------------

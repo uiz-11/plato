@@ -20,6 +20,7 @@ import { budgetAllows, checkpointExerciseEstimate } from "@/lib/engine/session"
 import type { SessionKind, SessionPosition } from "@/lib/engine/types"
 
 import { MasteryMeter } from "../mastery-meter"
+import { ActionBar } from "./action-bar"
 import {
   ExerciseCard,
   exerciseAnsweredFrom,
@@ -28,12 +29,6 @@ import {
   type ExerciseItemAnswer,
 } from "./exercise"
 import { newEventId, usePlayer, useReportPosition } from "./runtime"
-
-/**
- * The checkpoint whose last Next this page just sent. The summary arrives
- * with the refresh as a new mount, so this tells it apart from a reload.
- */
-let arrivedAtSummary: string | null = null
 
 /** The retry key in `checkpoint_queue`: the exercise id. */
 const keyOf = (item: ExerciseItem) => item.exercise.id
@@ -134,9 +129,7 @@ export function CheckpointUnit({
     if (to >= items.length) {
       // The mastery summary follows the last exercise with no budget check.
       startTransition(async () => {
-        arrivedAtSummary = moduleId
-        const ok = await player.finish({ kind: "answer-next" }, expected)
-        if (!ok) arrivedAtSummary = null
+        await player.finish({ kind: "answer-next" }, expected)
       })
       return
     }
@@ -244,26 +237,13 @@ function MasterySummary({
 }) {
   const player = usePlayer()
   const [pending, startTransition] = useTransition()
-  const heading = useRef<HTMLHeadingElement>(null)
   const session: SessionPosition = { unit: "checkpoint", moduleId, index }
   useReportPosition({ session, lesson: null })
-
-  // Arriving from the last exercise moves focus to the heading (WF-J); a
-  // load or reload leaves focus where it is, like every other unit.
-  useEffect(() => {
-    if (arrivedAtSummary !== moduleId) return
-    arrivedAtSummary = null
-    heading.current?.focus()
-  }, [moduleId])
 
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2
-          ref={heading}
-          tabIndex={-1}
-          className="text-2xl font-semibold outline-none"
-        >
+        <h2 tabIndex={-1} className="text-2xl font-semibold outline-none">
           {summary.heading}
         </h2>
         <p className="text-sm text-muted-foreground">{summary.score}</p>
@@ -279,7 +259,7 @@ function MasterySummary({
           </li>
         ))}
       </ul>
-      <div className="sticky bottom-0 mt-auto bg-background py-2 md:static md:py-0">
+      <ActionBar>
         <Button
           size="lg"
           className="min-h-11 w-full md:w-auto"
@@ -295,7 +275,7 @@ function MasterySummary({
         >
           Continue
         </Button>
-      </div>
+      </ActionBar>
     </div>
   )
 }
