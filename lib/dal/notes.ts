@@ -63,8 +63,49 @@ export async function updateNote(input: { id: string; text: string }) {
     .run()
 }
 
-/** Hard delete (§6). Deleting a note that is already gone is not an error. */
+/** How long a deleted note can be restored: the Undo toast's life, plus slack. */
+export const RESTORE_WINDOW_MS = 60_000
+
+type NoteRow = typeof answerNote.$inferSelect
+
+/**
+ * Notes deleted in the last minute, so Undo restores the server's own copy and
+ * the client sends only the id. In memory: the app is one process (D2), and a
+ * restart only costs an Undo that was about to expire anyway.
+ */
+const recentlyDeleted = new Map<string, { row: NoteRow; deletedAt: number }>()
+
+/**
+ * Undo after a delete: puts the note back exactly as it was (id, lesson,
+ * creation time), so it returns to its place. Each deletion can be undone
+ * once, within `RESTORE_WINDOW_MS`.
+ */
+export async function reinsertNote(input: { id: string }): Promise<void> {
+  await requireLearner()
+  const held = recentlyDeleted.get(input.id)
+  recentlyDeleted.delete(input.id)
+  if (!held || now() - held.deletedAt > RESTORE_WINDOW_MS)
+    throw new DalError("not_restorable", `Note ${input.id} cannot be restored`)
+  getDb()
+    .insert(answerNote)
+    .values({ ...held.row, updatedAt: now() })
+    .onConflictDoNothing()
+    .run()
+}
+
+/**
+ * Hard delete (§6), keeping a copy for Undo. Deleting a note that is already
+ * gone is not an error.
+ */
 export async function removeNote(input: { id: string }) {
   await requireLearner()
-  getDb().delete(answerNote).where(eq(answerNote.id, input.id)).run()
+  const at = now()
+  for (const [id, held] of recentlyDeleted)
+    if (at - held.deletedAt > RESTORE_WINDOW_MS) recentlyDeleted.delete(id)
+  const row = getDb()
+    .delete(answerNote)
+    .where(eq(answerNote.id, input.id))
+    .returning()
+    .get()
+  if (row) recentlyDeleted.set(row.id, { row, deletedAt: at })
 }

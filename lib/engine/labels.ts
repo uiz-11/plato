@@ -283,6 +283,9 @@ export function recallTickButton(missed: number, queueLength: number) {
     : `Practice (${queueLength})`
 }
 
+/** The toast after *Mark as skipped* in the Syllabus (WF-C1.4). */
+export const lessonSkippedToast = (n: number) => `Lesson ${n} skipped`
+
 /** "Lesson N complete" (WF-E7). */
 export const lessonCompleteHeading = (n: number) => `Lesson ${n} complete`
 

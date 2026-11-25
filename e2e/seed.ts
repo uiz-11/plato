@@ -105,6 +105,59 @@ export class Seed {
     return this
   }
 
+  /** Starts `lessonId` and leaves it at `position` (§7.3). */
+  startLesson(courseId: string, lessonId: string, position: object): this {
+    this.db
+      .prepare(
+        `INSERT INTO lesson_progress
+           (course_id, lesson_id, skipped, position, updated_at)
+         VALUES (?, ?, 0, ?, ?)`
+      )
+      .run(courseId, lessonId, JSON.stringify(position), Date.now())
+    return this
+  }
+
+  /** The lesson's progress row, or undefined when it has none. */
+  lessonRow(
+    courseId: string,
+    lessonId: string
+  ): { skipped: number; position: string | null } | undefined {
+    return this.db
+      .prepare(
+        "SELECT skipped, position FROM lesson_progress WHERE course_id = ? AND lesson_id = ?"
+      )
+      .get(courseId, lessonId) as
+      { skipped: number; position: string | null } | undefined
+  }
+
+  /** An answer note, stuck after `lessonId` or added on the Answers tab. */
+  note(
+    courseId: string,
+    keyQuestionId: string,
+    text: string,
+    lessonId: string | null = null
+  ): this {
+    const t = Date.now()
+    this.db
+      .prepare(
+        `INSERT INTO answer_note
+           (id, course_id, key_question_id, lesson_id, text, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(randomUUID(), courseId, keyQuestionId, lessonId, text, t, t)
+    return this
+  }
+
+  /** The course's answer notes' texts, oldest first. */
+  notes(courseId: string): string[] {
+    return this.db
+      .prepare(
+        "SELECT text FROM answer_note WHERE course_id = ? ORDER BY created_at, id"
+      )
+      .pluck()
+      .all(courseId) as string[]
+  }
+
   /** A review schedule row for a concept, due on `day(dueOffset)`. */
   schedule(
     courseId: string,

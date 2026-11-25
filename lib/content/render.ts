@@ -263,7 +263,12 @@ function remarkPlato(opts: PlatoOptions) {
     let source: string
     try {
       if (!ctx.assetsDir) throw new Error("no assets folder")
-      source = readFileSync(join(ctx.assetsDir, src), "utf8")
+      // Content is traced by `outputFileTracingIncludes` (§4); without the
+      // hint Turbopack traces the whole project into the standalone output.
+      source = readFileSync(
+        join(/*turbopackIgnore: true*/ ctx.assetsDir, src),
+        "utf8"
+      )
     } catch {
       error(`::figure: assets/${src} not found`, node)
       return

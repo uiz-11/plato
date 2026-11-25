@@ -3,6 +3,7 @@ import "server-only"
 import type { Root as HastRoot } from "hast"
 import { asc, eq } from "drizzle-orm"
 import { notFound } from "next/navigation"
+import { cache } from "react"
 
 import { requireLearner } from "@/lib/auth/learner"
 import { today } from "@/lib/clock"
@@ -75,7 +76,10 @@ export interface CourseHeaderView {
   mainButton: { label: string } | null
 }
 
-export async function getCourseHeader(
+/**
+ * Memoized per request: the layout and its `generateMetadata` both need it.
+ */
+export const getCourseHeader = cache(async function getCourseHeader(
   courseId: string
 ): Promise<CourseHeaderView> {
   const c = await courseOr404(courseId)
@@ -95,7 +99,7 @@ export async function getCourseHeader(
     ].join(" · "),
     mainButton: label ? { label } : null,
   }
-}
+})
 
 // --- Syllabus (WF-C1) -------------------------------------------------------
 

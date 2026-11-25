@@ -8,6 +8,7 @@ import {
   guessItemLabel,
   joinAnd,
   lessonRangeLabel,
+  lessonSkippedToast,
   mainButtonLabel,
   moduleLessonsLabel,
   notesLabel,
@@ -93,6 +94,10 @@ describe("targets in Today's format", () => {
 })
 
 describe("course page labels", () => {
+  it("names the skipped lesson in the toast", () => {
+    expect(lessonSkippedToast(3)).toBe("Lesson 3 skipped")
+  })
+
   const button = (p: CourseProgress) =>
     mainButtonLabel(p, courseStatus(p), nextTarget(p))
   it.each<[string, CourseProgress, string | null]>([
