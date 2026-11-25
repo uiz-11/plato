@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest"
 
 import type { Lesson } from "@/lib/content/schema"
+import type { Exercise } from "@/lib/content/schema"
 
 import {
+  isRecallRetry,
   madeCourseComplete,
+  markExerciseItem,
   markReviewItem,
+  recallQueueAfter,
+  showsRequeueNote,
   minutesUsedLabel,
   nextReviewPosition,
   reviewQueueAfter,
@@ -120,6 +125,57 @@ describe("the review queue", () => {
   it("moves to the next review, or ends the block", () => {
     expect(nextReviewPosition(0, 3)).toEqual({ unit: "reviews", index: 1 })
     expect(nextReviewPosition(2, 3)).toBeNull()
+  })
+})
+
+describe("Recall exercises", () => {
+  const exercise = lesson.exercises[0] as Exercise
+  const wrongSure = markExerciseItem(exercise, {
+    kind: "exercise",
+    response: { type: "mc", optionId: "o1" },
+    confidence: "sure",
+  })
+
+  it("marks an exercise answer and refuses a rating", () => {
+    expect(wrongSure).toEqual({
+      correct: false,
+      confidence: "sure",
+      selfMark: null,
+      grade: "forgot",
+    })
+    expect(() =>
+      markExerciseItem(exercise, { kind: "rating", grade: "forgot" })
+    ).toThrow(/response/)
+  })
+
+  it("re-queues a wrong Sure once, three exercises later or at the end", () => {
+    expect(recallQueueAfter(["a", "b"], 0, wrongSure)).toEqual(["a", "b", "a"])
+    expect(recallQueueAfter(["a", "b", "c", "d"], 0, wrongSure)).toEqual([
+      "a",
+      "b",
+      "c",
+      "a",
+      "d",
+    ])
+    expect(recallQueueAfter(["a", "b", "a"], 2, wrongSure)).toBeNull()
+    expect(
+      recallQueueAfter(["a", "b"], 0, { ...wrongSure, confidence: "guess" })
+    ).toBeNull()
+    expect(isRecallRetry(["a", "b", "a"], 2)).toBe(true)
+    expect(isRecallRetry(["a", "b", "a"], 0)).toBe(false)
+  })
+
+  it("notes the retry on the first answer only", () => {
+    const id = (x: string) => x
+    expect(showsRequeueNote(["a", "b", "a"], 0, id, wrongSure)).toBe(true)
+    // The retry itself, wrong again, is not queued again.
+    expect(showsRequeueNote(["a", "b", "a"], 2, id, wrongSure)).toBe(false)
+    expect(
+      showsRequeueNote(["a", "b", "a"], 0, id, {
+        correct: true,
+        confidence: "sure",
+      })
+    ).toBe(false)
   })
 })
 

@@ -7,6 +7,7 @@ import {
   attempt,
   conceptSchedule,
   draft,
+  guessAnswer,
   lessonProgress,
   session,
   shownUpDay,
@@ -30,6 +31,7 @@ import {
   getPlayerUnit,
   recallDraftKey,
   saveDraftText,
+  shortDraftKey,
   type PlayerView,
 } from "./player"
 import { startNewSession } from "./sessions"
@@ -173,6 +175,10 @@ describe("a reviews-only session", () => {
     expect(reloaded.unit.answered).toEqual({
       attemptId: eventId,
       grade: "remembered",
+      answer: { kind: "rating", grade: "remembered" },
+      correct: null,
+      confidence: null,
+      selfMark: null,
     })
   })
 
@@ -267,11 +273,14 @@ describe("a reviews-only session", () => {
     const { id } = await startNewSession({ kind: "reviews_only" })
     const view = await getPlayerUnit(id)
     if (view.unit.kind !== "reviews") throw new Error()
-    expect(view.unit.items[0].version).toEqual({
+    expect(view.unit.items[0].version).toMatchObject({
       kind: "exercise",
-      exerciseId: "e-tropical-review",
-      type: "fill",
+      exercise: { id: "e-tropical-review", type: "fill" },
+      briefKey: `${LEAP}/leap-rule`,
     })
+    // The brief it points to comes once, without the learner's guesses.
+    expect(Object.keys(view.unit.briefs)).toEqual([`${LEAP}/leap-rule`])
+    expect(view.unit.briefs[`${LEAP}/leap-rule`].guessPicks).toEqual({})
     await send(id, view, {
       kind: "answer",
       answer: {
@@ -289,6 +298,43 @@ describe("a reviews-only session", () => {
       confidence: "sure",
       grade: "forgot",
     })
+
+    // A reload shows the feedback, and the grown block.
+    const reloaded = await getPlayerUnit(id)
+    if (reloaded.unit.kind !== "reviews") throw new Error()
+    expect(reloaded.unit.items).toHaveLength(2)
+    expect(reloaded.unit.answered).toMatchObject({
+      answer: {
+        kind: "exercise",
+        response: { type: "fill", text: "solar" },
+        confidence: "sure",
+      },
+      correct: false,
+      confidence: "sure",
+      grade: "forgot",
+    })
+
+    // The retry is marked as one and leaves the schedule alone.
+    const sched = () => db.select().from(conceptSchedule).get()!
+    const before = sched()
+    await send(id, reloaded, { kind: "answer-next" })
+    const retry = await getPlayerUnit(id)
+    await send(id, retry, {
+      kind: "answer",
+      answer: {
+        kind: "exercise",
+        response: { type: "fill", text: "tropical" },
+        confidence: "sure",
+      },
+    })
+    const attempts = db.select().from(attempt).all()
+    expect(attempts.map((a) => [a.isRetry, a.correct])).toEqual([
+      [false, false],
+      [true, true],
+    ])
+    expect(sched()).toEqual(before)
+    // At most once per exercise per session: a wrong retry does not grow it.
+    expect(sessionRow(id).reviewQueue).toHaveLength(2)
   })
 })
 
@@ -426,9 +472,10 @@ describe("Recall, write then tick", () => {
     })
     const next = await getPlayerUnit(id)
     expect(next.unitKey).not.toBe(view.unitKey)
-    expect(next.unit).toEqual({
-      kind: "pending",
-      unit: "recall-exercises-answers",
+    expect(next.unit).toMatchObject({
+      kind: "recall-exercises",
+      index: 0,
+      answered: null,
     })
   })
 
@@ -447,6 +494,200 @@ describe("Recall, write then tick", () => {
         { kind: "recall-tick", ticked: [] }
       )
     ).toEqual({ ok: false, stale: true })
+  })
+})
+
+describe("Recall exercises", () => {
+  const LESSON = "symmetric-ciphers"
+  const QUEUE = [
+    "e-shared-key-recall",
+    "e-kerckhoffs-recall",
+    "e-key-length-recall",
+  ]
+
+  async function atExercises(index = 0) {
+    putLesson(db, ENC, LESSON, {
+      at: at - 864e5,
+      position: { step: "recall", phase: "exercises", index },
+    })
+    db.update(lessonProgress)
+      .set({ recallQueue: QUEUE, recallTicked: [] })
+      .run()
+    db.insert(guessAnswer)
+      .values({
+        courseId: ENC,
+        lessonId: LESSON,
+        guessId: "g-caesar",
+        optionId: "g-caesar-thousands",
+        answeredAt: at,
+      })
+      .run()
+    const { id } = await startNewSession({ kind: "standard", courseId: ENC })
+    return id
+  }
+
+  const lessonRow = () => db.select().from(lessonProgress).get()!
+  const mc = (optionId: string, confidence: "sure" | "not_sure" | "guess") =>
+    ({
+      kind: "answer",
+      answer: {
+        kind: "exercise",
+        response: { type: "mc", optionId },
+        confidence,
+      },
+    }) as const
+
+  it("shows the queue's exercises with the lesson's brief", async () => {
+    const id = await atExercises()
+    const key = shortDraftKey(ENC, "e-kerckhoffs-recall")
+    await saveDraftText({ key, text: "public study", updatedAt: 9 })
+    const view = await getPlayerUnit(id)
+    expect(view.frame.steps).toEqual({ current: "recall", hasWarmup: false })
+    if (view.unit.kind !== "recall-exercises") throw new Error(view.unit.kind)
+    expect(view.unit.items.map((i) => i.exercise.id)).toEqual(QUEUE)
+    expect(view.unit.items.map((i) => i.draftKey)).toEqual([
+      undefined,
+      key,
+      undefined,
+    ])
+    expect(view.unit.items[0].rendered.options).toBeDefined()
+    expect(view.unit.drafts).toEqual({
+      [key]: { key, text: "public study", updatedAt: 9 },
+    })
+    expect(view.unit.briefs[`${ENC}/${LESSON}`].guessPicks).toEqual({
+      "g-caesar": "g-caesar-thousands",
+    })
+    expect(view.unit.pickingUp).toBe(true)
+  })
+
+  it("records an answer, re-queues a wrong Sure and moves on", async () => {
+    const id = await atExercises()
+    const view = await getPlayerUnit(id)
+    const eventId = randomUUID()
+    expect(
+      await send(id, view, mc("e-shared-key-recall-public", "sure"), eventId)
+    ).toEqual({ ok: true })
+    expect(db.select().from(attempt).get()).toMatchObject({
+      id: eventId,
+      context: "recall",
+      courseId: ENC,
+      conceptId: "c-shared-key",
+      exerciseId: "e-shared-key-recall",
+      correct: false,
+      confidence: "sure",
+      grade: "forgot",
+      isRetry: false,
+    })
+    const row = lessonRow()
+    expect(row.position).toEqual({
+      step: "recall",
+      phase: "exercises",
+      index: 0,
+      answered: eventId,
+    })
+    expect(row.recallQueue).toEqual([
+      "e-shared-key-recall",
+      "e-kerckhoffs-recall",
+      "e-key-length-recall",
+      "e-shared-key-recall",
+    ])
+    // Recall exercises touch no schedule (R5).
+    expect(db.select().from(conceptSchedule).all()).toEqual([])
+    expect(sessionRow(id).position).toEqual({
+      unit: "lesson",
+      lessonId: LESSON,
+    })
+
+    // A reload shows the feedback instead of asking again.
+    const reloaded = await getPlayerUnit(id)
+    expect(reloaded.unitKey).toBe(view.unitKey)
+    if (reloaded.unit.kind !== "recall-exercises") throw new Error()
+    expect(reloaded.unit.items).toHaveLength(4)
+    expect(reloaded.unit.answered).toMatchObject({
+      attemptId: eventId,
+      correct: false,
+      confidence: "sure",
+    })
+    // A second answer to the same item is refused.
+    await expect(
+      send(id, reloaded, mc("e-shared-key-recall-same", "sure"))
+    ).rejects.toThrow()
+
+    await send(id, reloaded, { kind: "answer-next" })
+    expect(lessonRow().position).toEqual({
+      step: "recall",
+      phase: "exercises",
+      index: 1,
+    })
+  })
+
+  it("records a short answer with its self-mark and drops its draft", async () => {
+    const id = await atExercises(1)
+    const key = shortDraftKey(ENC, "e-kerckhoffs-recall")
+    await saveDraftText({ key, text: "public study", updatedAt: 9 })
+    const view = await getPlayerUnit(id)
+    await send(id, view, {
+      kind: "answer",
+      answer: {
+        kind: "exercise",
+        response: { type: "short", text: "public study", ticked: [0] },
+        confidence: null,
+      },
+    })
+    expect(db.select().from(attempt).get()).toMatchObject({
+      context: "recall",
+      exerciseId: "e-kerckhoffs-recall",
+      correct: null,
+      confidence: null,
+      selfMark: "partial",
+      grade: "partly",
+    })
+    expect(db.select().from(draft).all()).toEqual([])
+    expect(lessonRow().recallQueue).toEqual(QUEUE)
+  })
+
+  it("goes on to step 5 after the last exercise", async () => {
+    const id = await atExercises(2)
+    const view = await getPlayerUnit(id)
+    await expect(send(id, view, { kind: "answer-next" })).rejects.toThrow()
+    await send(id, view, {
+      kind: "answer",
+      answer: {
+        kind: "exercise",
+        response: { type: "fill", text: " Doubles! " },
+        confidence: "not_sure",
+      },
+    })
+    expect(db.select().from(attempt).get()).toMatchObject({
+      correct: true,
+      grade: "partly",
+    })
+    const answered = await getPlayerUnit(id)
+    await send(id, answered, { kind: "answer-next" })
+    expect(lessonRow().position).toEqual({ step: "answers", index: 0 })
+    const next = await getPlayerUnit(id)
+    expect(next.unitKey).toBe(view.unitKey)
+    expect(next.unit).toEqual({
+      kind: "pending",
+      unit: "recall-exercises-answers",
+    })
+  })
+
+  it("refuses a response of the wrong type", async () => {
+    const id = await atExercises()
+    const view = await getPlayerUnit(id)
+    await expect(
+      send(id, view, {
+        kind: "answer",
+        answer: {
+          kind: "exercise",
+          response: { type: "fill", text: "same" },
+          confidence: "sure",
+        },
+      })
+    ).rejects.toThrow(/fill response/)
+    await expect(send(id, view, rate())).rejects.toThrow(/response/)
+    expect(db.select().from(attempt).all()).toEqual([])
   })
 })
 

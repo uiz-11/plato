@@ -2,38 +2,81 @@
 
 import { useEffect, useRef, useState, useTransition } from "react"
 
+import type { AnsweredView } from "@/lib/dal/player"
 import { reviewItemLabel } from "@/lib/engine/labels"
-import { nextReviewPosition } from "@/lib/engine/player"
+import {
+  markExerciseItem,
+  nextReviewPosition,
+  showsRequeueNote,
+} from "@/lib/engine/player"
+import { isWrongSure, requeueWrongSure } from "@/lib/engine/marking"
 import type { Grade, SessionPosition } from "@/lib/engine/types"
 import { cn } from "@/lib/utils"
 
+import {
+  ExerciseCard,
+  exerciseAnsweredFrom,
+  type ExerciseAnswered,
+  type ExerciseItem,
+  type ExerciseItemAnswer,
+} from "./exercise"
 import { RecallPrompt } from "./recall-prompt"
 import { newEventId, usePlayer } from "./runtime"
 
 export type ReviewItem = {
+  courseId: string
   courseTitle: string
+  conceptId: string
 } & (
   | { kind: "prompt"; prompt: React.ReactNode; answer: React.ReactNode }
-  | { kind: "exercise" }
+  | ({ kind: "exercise" } & ExerciseItem)
 )
 
+/** The item's retry key, as the server's `reviewKey`. */
+const keyOf = (item: Pick<ReviewItem, "courseId" | "conceptId">) =>
+  `${item.courseId}:${item.conceptId}`
+
+type Answered =
+  | { attemptId: string; grade: Grade; exercise: null }
+  | { attemptId: string; grade: Grade; exercise: ExerciseAnswered }
+
+function answeredFrom(
+  item: ReviewItem | undefined,
+  stored: AnsweredView | null
+): Answered | null {
+  if (!item || !stored) return null
+  if (item.kind === "prompt")
+    return { attemptId: stored.attemptId, grade: stored.grade, exercise: null }
+  const exercise = exerciseAnsweredFrom(item.exercise, stored)
+  return exercise
+    ? { attemptId: stored.attemptId, grade: stored.grade, exercise }
+    : null
+}
+
 /**
- * The review block (WF-D1): one review at a time, moved through locally.
- * Rating a recall prompt records the answer and moves on; the block's last
- * item ends the unit (§8.4).
+ * The review block (WF-D1, WF-D2): one review at a time, moved through
+ * locally. A recall prompt is rated; an exercise is answered with a
+ * confidence and shows its feedback. A wrong *Sure* comes back three items
+ * later, growing the block (§7.2). The block's last item ends the unit.
  */
 export function ReviewBlock({
-  items,
+  items: startItems,
   index: startIndex,
   answered: startAnswered,
+  briefs,
 }: {
   items: ReviewItem[]
   index: number
-  answered: { attemptId: string; grade: Grade } | null
+  answered: AnsweredView | null
+  /** Each brief an exercise points to, by its `briefKey`. */
+  briefs: Record<string, React.ReactNode>
 }) {
   const player = usePlayer()
+  const [items, setItems] = useState(startItems)
   const [index, setIndex] = useState(startIndex)
-  const [answered, setAnswered] = useState(startAnswered)
+  const [answered, setAnswered] = useState(() =>
+    answeredFrom(startItems[startIndex], startAnswered)
+  )
   const [pending, startTransition] = useTransition()
   const heading = useRef<HTMLHeadingElement>(null)
   const first = useRef(true)
@@ -81,8 +124,29 @@ export function ReviewBlock({
       { session: position(), lesson: null },
       { id }
     )
-    setAnswered({ attemptId: id, grade })
+    setAnswered({ attemptId: id, grade, exercise: null })
     next(id)
+  }
+
+  const answerExercise = (answer: ExerciseItemAnswer) => {
+    if (item.kind !== "exercise") return
+    const marked = markExerciseItem(item.exercise, answer)
+    const id = newEventId()
+    player.send(
+      { kind: "answer", answer },
+      { session: position(), lesson: null },
+      { id }
+    )
+    // The same re-queue the server applies, so both queues stay equal.
+    const grown = isWrongSure(marked)
+      ? requeueWrongSure(items, index, keyOf)
+      : null
+    if (grown) setItems(grown)
+    setAnswered({
+      attemptId: id,
+      grade: marked.grade,
+      exercise: { answer, marked },
+    })
   }
 
   return (
@@ -122,10 +186,21 @@ export function ReviewBlock({
           onNext={() => answered && next(answered.attemptId)}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">
-          This kind of review can&apos;t be shown yet. Your progress so far is
-          saved.
-        </p>
+        <ExerciseCard
+          // A new item, or its retry, starts unanswered.
+          key={index}
+          item={item}
+          answered={answered?.exercise ?? null}
+          requeued={
+            answered?.exercise
+              ? showsRequeueNote(items, index, keyOf, answered.exercise.marked)
+              : false
+          }
+          brief={briefs[item.briefKey] ?? null}
+          pending={pending}
+          onAnswer={answerExercise}
+          onNext={() => answered && next(answered.attemptId)}
+        />
       )}
     </div>
   )

@@ -8,6 +8,19 @@ import type { Grade } from "@/lib/engine/types"
 
 const GRADES: readonly Grade[] = ["forgot", "partly", "remembered"]
 
+/**
+ * Whether a key press is not a player shortcut (1/2/3): it is already
+ * handled, typed in a text field, or pressed inside an open menu or dialog
+ * (the ⋯ menu, a sheet), where it belongs to that overlay.
+ */
+export function notAShortcut(e: KeyboardEvent): boolean {
+  if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey)
+    return true
+  if (inTextField(e.target)) return true
+  if (document.querySelector('[role="menu"], [role="dialog"]')) return true
+  return false
+}
+
 /** Whether a key press belongs to a text field rather than a shortcut. */
 export function inTextField(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -59,8 +72,7 @@ export function RecallPrompt({
   useEffect(() => {
     if (!rating || !onRate || pending) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return
-      if (inTextField(e.target)) return
+      if (notAShortcut(e)) return
       const grade = GRADES[Number(e.key) - 1]
       if (grade && ["1", "2", "3"].includes(e.key)) {
         e.preventDefault()

@@ -106,15 +106,30 @@ export class Seed {
     return this
   }
 
-  /** Starts `lessonId` and leaves it at `position` (§7.3). */
-  startLesson(courseId: string, lessonId: string, position: object): this {
+  /**
+   * Starts `lessonId` and leaves it at `position` (§7.3), with its Recall
+   * exercise queue when the ticks are done.
+   */
+  startLesson(
+    courseId: string,
+    lessonId: string,
+    position: object,
+    recallQueue: string[] | null = null
+  ): this {
     this.db
       .prepare(
         `INSERT INTO lesson_progress
-           (course_id, lesson_id, skipped, position, updated_at)
-         VALUES (?, ?, 0, ?, ?)`
+           (course_id, lesson_id, skipped, position, recall_ticked, recall_queue, updated_at)
+         VALUES (?, ?, 0, ?, ?, ?, ?)`
       )
-      .run(courseId, lessonId, JSON.stringify(position), Date.now())
+      .run(
+        courseId,
+        lessonId,
+        JSON.stringify(position),
+        recallQueue ? "[]" : null,
+        recallQueue ? JSON.stringify(recallQueue) : null,
+        Date.now()
+      )
     return this
   }
 
@@ -162,20 +177,23 @@ export class Seed {
       .all(courseId) as string[]
   }
 
-  /** A review schedule row for a concept, due on `day(dueOffset)`. */
+  /**
+   * A review schedule row for a concept, due on `day(dueOffset)`. `cursor`
+   * picks the review version shown next (§7.4).
+   */
   schedule(
     courseId: string,
     conceptId: string,
-    { due, last }: { due: number; last: number }
+    { due, last, cursor = 0 }: { due: number; last: number; cursor?: number }
   ): this {
     this.db
       .prepare(
         `INSERT INTO concept_schedule
            (course_id, concept_id, lesson_day, due_day, interval_days, ease,
             last_event_day, later_day_reviews, last_grade, version_cursor)
-         VALUES (?, ?, ?, ?, 1, 2.5, ?, 0, NULL, 0)`
+         VALUES (?, ?, ?, ?, 1, 2.5, ?, 0, NULL, ?)`
       )
-      .run(courseId, conceptId, day(last), day(due), day(last))
+      .run(courseId, conceptId, day(last), day(due), day(last), cursor)
     return this
   }
 
@@ -225,6 +243,34 @@ export class Seed {
       .prepare("SELECT text FROM draft WHERE key = ?")
       .pluck()
       .get(key) as string | undefined
+  }
+
+  /** One context's attempts, in answer order (§6). */
+  attempts(context: "recall" | "review" | "checkpoint"): {
+    exercise_id: string | null
+    correct: number | null
+    confidence: string | null
+    self_mark: string | null
+    grade: string
+    is_retry: number
+  }[] {
+    return this.db
+      .prepare(
+        `SELECT exercise_id, correct, confidence, self_mark, grade, is_retry
+           FROM attempt WHERE context = ? ORDER BY answered_at, rowid`
+      )
+      .all(context) as ReturnType<Seed["attempts"]>
+  }
+
+  /** The lesson's Recall exercise queue (§7.3). */
+  recallQueue(courseId: string, lessonId: string): string[] | null {
+    const raw = this.db
+      .prepare(
+        "SELECT recall_queue FROM lesson_progress WHERE course_id = ? AND lesson_id = ?"
+      )
+      .pluck()
+      .get(courseId, lessonId) as string | null | undefined
+    return raw ? (JSON.parse(raw) as string[]) : null
   }
 
   /** Review attempts' grades, in answer order. */

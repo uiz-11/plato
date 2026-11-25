@@ -2,13 +2,19 @@ import "katex/dist/katex.min.css"
 
 import type { Metadata } from "next"
 
-import { renderContent } from "@/components/plato/content"
+import { Brief, renderContent } from "@/components/plato/content"
 import {
   CourseComplete,
   PendingUnit,
   SessionComplete,
 } from "@/components/plato/player/end-screens"
+import type {
+  ExerciseItem,
+  ExerciseNodes,
+} from "@/components/plato/player/exercise"
+import { BRIEF_SHEET_PREFIX } from "@/components/plato/player/logic"
 import { PlayerFrame } from "@/components/plato/player/player-frame"
+import { RecallExercises } from "@/components/plato/player/recall-exercises"
 import { RecallUnit } from "@/components/plato/player/recall-unit"
 import {
   ReviewBlock,
@@ -19,7 +25,13 @@ import {
   UnitBoundary,
 } from "@/components/plato/player/runtime"
 import { StepsRow } from "@/components/plato/player/steps-row"
-import { getPlayerUnit, type PlayerView } from "@/lib/dal/player"
+import {
+  getPlayerUnit,
+  type BriefView,
+  type ExerciseItemView,
+  type PlayerView,
+} from "@/lib/dal/player"
+import type { RenderedOptions } from "@/lib/content/render"
 
 export const metadata: Metadata = { title: "Session" }
 
@@ -75,19 +87,40 @@ function Unit({ view }: { view: PlayerView }) {
           ? {
               kind: "prompt",
               courseTitle: item.courseTitle,
+              courseId: item.courseId,
+              conceptId: item.conceptId,
               prompt: renderContent(item.version.prompt, ctx),
               answer: renderContent(item.version.answer, ctx),
             }
-          : { kind: "exercise", courseTitle: item.courseTitle }
+          : {
+              kind: "exercise",
+              courseId: item.courseId,
+              courseTitle: item.courseTitle,
+              conceptId: item.conceptId,
+              ...exerciseItem(item.courseId, item.version),
+            }
       })
       return (
         <ReviewBlock
           items={items}
           index={unit.index}
           answered={unit.answered}
+          briefs={briefNodes(unit.briefs)}
         />
       )
     }
+    case "recall-exercises":
+      return (
+        <RecallExercises
+          lessonId={unit.lessonId}
+          pickingUp={unit.pickingUp}
+          items={unit.items.map((item) => exerciseItem(unit.courseId, item))}
+          index={unit.index}
+          answered={unit.answered}
+          briefs={briefNodes(unit.briefs)}
+          drafts={unit.drafts}
+        />
+      )
     case "recall-write-tick":
       return (
         <RecallUnit
@@ -108,4 +141,51 @@ function Unit({ view }: { view: PlayerView }) {
     case "pending":
       return <PendingUnit />
   }
+}
+
+/** An exercise's rendered fields as nodes, with its answer key (§8.4). */
+function exerciseItem(courseId: string, view: ExerciseItemView): ExerciseItem {
+  const ctx = { courseId, surface: "player" as const }
+  const r = view.rendered
+  const options = (o: RenderedOptions | undefined) =>
+    o
+      ? Object.fromEntries(
+          Object.entries(o).map(([id, tree]) => [id, renderContent(tree, ctx)])
+        )
+      : undefined
+  const nodes: ExerciseNodes = {
+    prompt: renderContent(r.prompt, ctx),
+    explanation: renderContent(r.explanation, ctx),
+    scenario: r.scenario ? renderContent(r.scenario, ctx) : undefined,
+    options: options(r.options),
+    sentences: options(r.sentences),
+    fixes: options(r.fixes),
+  }
+  return {
+    exercise: view.exercise,
+    nodes,
+    briefKey: view.briefKey,
+    draftKey: view.draftKey,
+  }
+}
+
+/** Each brief a unit points to, rendered once for `BriefSheet` (§8.4). */
+function briefNodes(
+  briefs: Record<string, BriefView>
+): Record<string, React.ReactNode> {
+  return Object.fromEntries(
+    Object.entries(briefs).map(([key, b]) => [
+      key,
+      <Brief
+        key={key}
+        ctx={{
+          courseId: b.courseId,
+          surface: "player",
+          lesson: b.lesson,
+          guessPicks: b.guessPicks,
+          idPrefix: BRIEF_SHEET_PREFIX,
+        }}
+      />,
+    ])
+  )
 }

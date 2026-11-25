@@ -1,6 +1,12 @@
 // The player runtime's decisions, as plain functions so they are tested
 // without a browser (§8.4).
 
+/**
+ * The id prefix of the brief inside a `BriefSheet` (`ContentContext.idPrefix`),
+ * here so the server page and the sheet share it.
+ */
+export const BRIEF_SHEET_PREFIX = "brief-sheet"
+
 export interface DraftCopy {
   key: string
   text: string
