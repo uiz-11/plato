@@ -62,10 +62,14 @@ jobs:
           # Locked: the proxy redirects home to /unlock.
           status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)
           test "$status" = 307 || { echo "locked home answered $status"; exit 1; }
-          # The passcode as a bearer token reaches the placeholder home.
+          # The passcode as a bearer token reaches Today. The image publishes
+          # no course, so it shows the first-run card (WF-A2), read from the
+          # migrated DB.
           curl -fsS -H 'authorization: Bearer ci-passcode-at-least-20-chars' \
             http://127.0.0.1:3000/ -o /tmp/home.html
-          grep -q "Nothing here yet." /tmp/home.html
+          grep -q 'data-state="first-run"' /tmp/home.html ||
+            { echo "home did not render Today's first-run card"; exit 1; }
+          grep -q "What do you want to learn?" /tmp/home.html
           # Migrations ran at start (instrumentation.ts) on the volume's DB file.
           docker exec plato node -e "
             const db = require('better-sqlite3')(process.env.PLATO_DB_PATH, { readonly: true, fileMustExist: true });
