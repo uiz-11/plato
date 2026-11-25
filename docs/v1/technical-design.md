@@ -807,7 +807,7 @@ The course-creation skill is out of scope for this document. This section define
 ### 11.1 Requests out
 
 - `GET /api/pipeline/requests` (bearer passcode) returns `[{ id, text, createdAt }]` for requests that are neither published nor listed in `not-built.json`.
-- `npm run requests:export` calls it (with `PLATO_URL` and `PLATO_PASSCODE`) and writes one file per request to `.pipeline/requests/<id>.json`. The whole `.pipeline/` directory is gitignored.
+- `npm run requests:export` calls it (with `PLATO_URL` and `PLATO_PASSCODE`) and writes one file per request to `.pipeline/requests/<id>.json`, removing the files of requests no longer open. The whole `.pipeline/` directory is gitignored.
 - The pipeline never writes to the app's database.
 
 ### 11.2 Stages of course creation

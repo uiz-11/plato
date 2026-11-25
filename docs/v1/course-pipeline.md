@@ -12,7 +12,7 @@ This is the brief for the course-creation skill: what it reads, what it writes, 
 
 ## 1. What the operator runs
 
-1. `npm run requests:export` writes one file per open request to `.pipeline/requests/<id>.json`: `{ id, text, createdAt }`. (T20.)
+1. `npm run requests:export` writes one file per open request to `.pipeline/requests/<id>.json`: `{ id, text, createdAt }`. It also removes the files of requests that have since been published or marked not built, so the folder holds only open requests. (T20.)
 2. The course-creation skill, once per request. It ends either with stage 5's gate passing, or with a not-build decision.
 3. `npm run course:publish <id>`, or `npm run course:not-built <requestId> "<reason>"`.
 4. Commit, open a PR, merge when CI is green, and deploy.
