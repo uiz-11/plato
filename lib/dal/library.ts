@@ -5,7 +5,7 @@ import { readNotBuilt, readPublished } from "@/lib/content/load"
 import { getDb } from "@/lib/db/client"
 import { completedLabel } from "@/lib/engine/labels"
 import { completedCount, courseStatus } from "@/lib/engine/status"
-import { todayRows } from "@/lib/engine/today"
+import { todayRows, type RowProgress } from "@/lib/engine/today"
 
 import { loadCourseStates, readRequests } from "./load"
 
@@ -14,6 +14,8 @@ export interface LibraryCourseCard {
   title: string
   coverLabel: string
   meta: string
+  /** Set for courses in progress or complete; draws the bar. */
+  progress?: RowProgress
 }
 
 /** Library (WF-H1): the sections in their display order. */
@@ -42,7 +44,12 @@ export async function getLibraryView(): Promise<LibraryView> {
     notBuilt: readNotBuilt(),
   })
   const cover = new Map(courses.map((c) => [c.course.id, c.course.coverLabel]))
-  const card = (r: { courseId: string; title: string; meta: string }) => ({
+  const card = (r: {
+    courseId: string
+    title: string
+    meta: string
+    progress?: RowProgress
+  }) => ({
     ...r,
     coverLabel: cover.get(r.courseId) ?? "",
   })
@@ -56,10 +63,18 @@ export async function getLibraryView(): Promise<LibraryView> {
         title: c.course.title,
         coverLabel: c.course.coverLabel,
         meta: `${completedLabel(completed, total)} ✓`,
+        progress: { completed, total },
       }
     })
   return {
-    inProgress: rows.inProgress.map(card),
+    // "2 of 12 completed" only: Today's row adds the open checkpoint, the
+    // Library card does not (WF-H1).
+    inProgress: rows.inProgress.map((r) =>
+      card({
+        ...r,
+        meta: completedLabel(r.progress.completed, r.progress.total),
+      })
+    ),
     ready: rows.ready.map(card),
     complete,
     requested: rows.requested,

@@ -6,7 +6,9 @@ import { locked } from "./auth"
 // One row per screen. Each screen task adds its rows (§10).
 const screens: Array<{ name: string; path: string; locked?: boolean }> = [
   { name: "unlock", path: "/unlock", locked: true },
-  { name: "home", path: "/" },
+  { name: "today", path: "/" },
+  { name: "new request", path: "/new" },
+  { name: "library", path: "/library" },
 ]
 
 for (const screen of screens) {

@@ -13,7 +13,8 @@ import {
   requestStatus,
   type Target,
 } from "./status"
-import { assembleSession, type CourseCandidate } from "./session"
+import { assembleSession, reviewCount, type CourseCandidate } from "./session"
+import { EST } from "./constants"
 import { completedLabel, plural, sessionLine, targetLabel } from "./labels"
 import type { ScheduleRow } from "./schedule"
 import type { Day, SessionMinutes } from "./types"
@@ -29,7 +30,14 @@ export type TodayAction =
 
 export type TodayCard =
   | { kind: "welcome-back"; text: string; actions: TodayAction[] }
-  | { kind: "session"; line: string; text: string; actions: TodayAction[] }
+  | {
+      kind: "session"
+      line: string
+      text: string
+      /** "Reviews only · ~{n} min" (spec F8), when that action is offered. */
+      reviewsOnlyMinutes: number
+      actions: TodayAction[]
+    }
   | { kind: "next"; target: string; text: string; actions: TodayAction[] }
   | { kind: "reviews-due"; count: number; text: string; actions: TodayAction[] }
   | {
@@ -64,10 +72,21 @@ export interface TodayInput {
   notBuilt: readonly Pick<NotBuiltEntry, "requestId" | "reason">[]
 }
 
+/** Lessons completed out of the total, for a course's progress bar. */
+export interface RowProgress {
+  completed: number
+  total: number
+}
+
 export interface TodayView {
   card: TodayCard
   /** *In progress* rows, most recently used first. */
-  inProgress: Array<{ courseId: string; title: string; meta: string }>
+  inProgress: Array<{
+    courseId: string
+    title: string
+    meta: string
+    progress: RowProgress
+  }>
   /** *Ready* rows, newest published first. */
   ready: Array<{ courseId: string; title: string; meta: string }>
   /** *Requested* and *Not built* requests, newest first. */
@@ -120,10 +139,21 @@ export function todayCard(input: TodayInput): TodayCard {
     // 2. A target, and the session holds reviews.
     if (a.reviews.length > 0) {
       const line = sessionLine(a.reviews.length, t)
+      const reviewsOnly = reviewCount({
+        kind: "reviews_only",
+        minutes: input.minutes,
+        hasTarget: true,
+        due: a.due,
+        capLeft: a.capLeft,
+      })
       return {
         kind: "session",
         line,
         text: `Your session: ${line}`,
+        reviewsOnlyMinutes: Math.max(
+          1,
+          Math.round((reviewsOnly * EST.review) / 60)
+        ),
         actions: [
           "start-session",
           ...(reviewFits ? (["reviews-only"] as const) : []),
@@ -230,6 +260,7 @@ export function todayRows(
         courseId: c.course.id,
         title: c.course.title,
         meta: `${completedLabel(completed, total)}${cpOpen}`,
+        progress: { completed, total },
       }
     })
   const ready = newestFirst(

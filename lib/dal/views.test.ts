@@ -92,6 +92,7 @@ describe("getTodayView", () => {
         courseId: ENC,
         title: "How encryption keeps secrets",
         meta: "0 of 4 completed",
+        progress: { completed: 0, total: 4 },
       },
     ])
     expect(view.ready.map((r) => r.courseId)).toEqual([LEAP])
@@ -243,9 +244,10 @@ describe("getLibraryView", () => {
       .run()
     const view = await getLibraryView()
     expect(view.complete).toEqual([])
+    // The Library card leaves out Today's "· Checkpoint 1 open" (WF-H1).
     expect(view.inProgress[0]).toMatchObject({
       courseId: LEAP,
-      meta: "1 of 1 completed · Checkpoint 1 open",
+      meta: "1 of 1 completed",
     })
   })
 

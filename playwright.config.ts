@@ -9,9 +9,17 @@ const root = import.meta.dirname
 // Workers re-evaluate this file, so fix the DB path once per run and hand it
 // down through the environment.
 process.env.PLATO_E2E_DB_PATH ??= join(tmpdir(), `plato-e2e-${Date.now()}.db`)
+process.env.PLATO_E2E_EMPTY_DB_PATH ??= join(
+  tmpdir(),
+  `plato-e2e-empty-${Date.now()}.db`
+)
 
 const port = Number(process.env.E2E_PORT ?? 3100)
 const baseURL = `http://127.0.0.1:${port}`
+// A second server with no published course, for Today's first run (WF-A2):
+// `emptyBaseURL` in e2e/auth.ts. Cookies ignore the port, so the stored cookie
+// unlocks it too.
+const emptyPort = port + 1
 
 // e2e runs against the standalone server, as in production (§10.1).
 // Build first: `npm run build`.
@@ -40,21 +48,35 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
+  webServer: [
+    server(port, process.env.PLATO_E2E_DB_PATH, "e2e/fixtures/content"),
+    server(
+      emptyPort,
+      process.env.PLATO_E2E_EMPTY_DB_PATH,
+      "e2e/fixtures/empty-content"
+    ),
+  ],
+})
+
+function server(port: number, dbPath: string | undefined, content: string) {
+  if (!dbPath) throw new Error("No e2e database path")
+  return {
     command: "node .next/standalone/server.js",
     cwd: root,
-    url: baseURL,
+    url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 60_000,
     env: {
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
-      PLATO_DB_PATH: process.env.PLATO_E2E_DB_PATH,
-      PLATO_CONTENT_DIR: join(root, "e2e/fixtures/content"),
+      PLATO_DB_PATH: dbPath,
+      PLATO_CONTENT_DIR: join(root, content),
       PLATO_PASSCODE: E2E_PASSCODE,
       PLATO_COOKIE_SECRET: E2E_COOKIE_SECRET,
       PLATO_TEST_HOOKS: "1",
+      // e2e/seed.ts computes learning days in UTC; never inherit the shell's.
+      PLATO_TIME_ZONE: "UTC",
     },
-  },
-})
+  }
+}

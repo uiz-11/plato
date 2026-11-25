@@ -5,7 +5,7 @@ import { E2E_PASSCODE, locked } from "./auth"
 test.describe("locked", () => {
   test.use(locked)
 
-  test("locked → unlock → placeholder home", async ({ page }) => {
+  test("locked → unlock → Today", async ({ page }) => {
     await page.goto("/")
     await expect(page).toHaveURL("/unlock")
 
@@ -19,7 +19,7 @@ test.describe("locked", () => {
     await page.getByRole("button", { name: "Unlock" }).click()
     await expect(page).toHaveURL("/")
     await expect(
-      page.getByRole("heading", { level: 1, name: "Plato" })
+      page.getByRole("heading", { level: 1, name: "Today" })
     ).toBeVisible()
 
     const cookie = (await page.context().cookies()).find(
