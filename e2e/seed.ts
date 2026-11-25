@@ -59,6 +59,7 @@ const at = (offset: number) =>
 
 export class Seed {
   private db: Database.Database
+  private lastNoteAt = 0
 
   constructor(path = process.env.PLATO_E2E_DB_PATH!) {
     this.db = new Database(path, { fileMustExist: true })
@@ -137,7 +138,10 @@ export class Seed {
     text: string,
     lessonId: string | null = null
   ): this {
-    const t = Date.now()
+    // Strictly increasing, so notes seeded in one millisecond keep their
+    // order (the Answers tab sorts by created_at, then a random id).
+    const t = Math.max(Date.now(), this.lastNoteAt + 1)
+    this.lastNoteAt = t
     this.db
       .prepare(
         `INSERT INTO answer_note
@@ -206,6 +210,31 @@ export class Seed {
       .prepare("SELECT count(*) FROM session")
       .pluck()
       .get() as number
+  }
+
+  /** The player's rows for one session: its position and answers (§8.4). */
+  sessionRow(id: string): { position: string; ended_at: number | null } {
+    return this.db
+      .prepare("SELECT position, ended_at FROM session WHERE id = ?")
+      .get(id) as { position: string; ended_at: number | null }
+  }
+
+  /** A draft's text, or undefined when there is none (§6). */
+  draft(key: string): string | undefined {
+    return this.db
+      .prepare("SELECT text FROM draft WHERE key = ?")
+      .pluck()
+      .get(key) as string | undefined
+  }
+
+  /** Review attempts' grades, in answer order. */
+  reviewGrades(): string[] {
+    return this.db
+      .prepare(
+        "SELECT grade FROM attempt WHERE context = 'review' ORDER BY answered_at, rowid"
+      )
+      .pluck()
+      .all() as string[]
   }
 
   /** Every lesson completed and every checkpoint answered. */

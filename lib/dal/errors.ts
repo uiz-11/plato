@@ -12,6 +12,11 @@ export type DalErrorCode =
   // hand-made request too, but also an Undo across a server restart; the
   // client shows that as a failed restore.
   | "not_restorable"
+  | "unknown_session"
+  // A player event that does not fit the position it was sent at, though
+  // the expected position matched: a hand-made request.
+  | "bad_event"
+  | "bad_draft"
 
 export class DalError extends Error {
   constructor(
@@ -21,4 +26,16 @@ export class DalError extends Error {
     super(message)
     this.name = "DalError"
   }
+}
+
+/**
+ * SQLite errors that pass: the database was locked longer than the busy
+ * timeout (a backup), or the disk hiccuped. Retrying the same request works,
+ * so the player retries these instead of refusing the event (§8.4).
+ */
+const TRANSIENT_SQLITE = /^SQLITE_(BUSY|LOCKED|IOERR|CANTOPEN|FULL|PROTOCOL)/
+
+export function isTransientDbError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === "string" && TRANSIENT_SQLITE.test(code)
 }

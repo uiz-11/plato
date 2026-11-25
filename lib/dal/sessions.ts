@@ -2,7 +2,7 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 
-import { eq, isNull } from "drizzle-orm"
+import { isNull } from "drizzle-orm"
 
 import { requireLearner } from "@/lib/auth/learner"
 import { now, today } from "@/lib/clock"
@@ -109,19 +109,4 @@ export async function startNewSession(
       .run()
   })
   return { id }
-}
-
-/**
- * Whether a session exists. Only the stand-in session page uses it, until the
- * player's `getPlayerUnit` (T15) replaces both.
- */
-export async function sessionExists(sessionId: string): Promise<boolean> {
-  await requireLearner()
-  return (
-    getDb()
-      .select({ id: session.id })
-      .from(session)
-      .where(eq(session.id, sessionId))
-      .get() !== undefined
-  )
 }
