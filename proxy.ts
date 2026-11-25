@@ -7,6 +7,13 @@ import { isAuthorized, SESSION_COOKIE } from "@/lib/auth/session"
 // before anything renders. It is not the security boundary: `requireLearner()`
 // checks again in every DAL function and Server Action.
 export function proxy(request: NextRequest) {
+  // A Server Action is a POST that expects an action response. Redirecting it
+  // here would hand the client an HTML page it cannot read, so the form shows
+  // a failure instead of /unlock. `requireLearner()` refuses it and redirects
+  // in a way the client follows.
+  if (request.method === "POST" && request.headers.has("next-action"))
+    return NextResponse.next()
+
   const authorized = isAuthorized(
     {
       cookie: request.cookies.get(SESSION_COOKIE)?.value,

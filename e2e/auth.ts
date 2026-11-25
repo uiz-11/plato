@@ -6,3 +6,6 @@ export const STORAGE_STATE = join(import.meta.dirname, ".auth/learner.json")
 
 /** `test.use(locked)` starts a spec with no cookie. */
 export const locked = { storageState: { cookies: [], origins: [] } }
+
+/** The second server, with no published course (Today's first run). */
+export const emptyBaseURL = `http://127.0.0.1:${Number(process.env.E2E_PORT ?? 3100) + 1}`

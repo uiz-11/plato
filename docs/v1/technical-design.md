@@ -666,7 +666,7 @@ A client `<PlayerFrame>` wraps a client unit component keyed by `unitKey`, so lo
 
 - **Passcode.** `PLATO_PASSCODE` (at least 20 characters) and `PLATO_COOKIE_SECRET` are required in production; the server refuses to start without them or with a shorter passcode.
 - **Cookie.** `/unlock` compares the passcode with `timingSafeEqual`, then sets an HttpOnly, Secure, SameSite=Lax cookie holding an HMAC-signed expiry one year out.
-- **`requireLearner()`** verifies the cookie in every DAL function and Server Action. `proxy.ts` only redirects early. In development with no passcode set, the gate is off.
+- **`requireLearner()`** verifies the cookie in every DAL function and Server Action. `proxy.ts` only redirects early. In development with no passcode set, the gate is off. The proxy lets Server Action POSTs (a `Next-Action` header) through, since a redirected action reaches the client as an unreadable page; the action's own `requireLearner()` redirect is what sends it to `/unlock`. Anyone can send that header, so nothing may rely on the proxy: `app/gate.test.ts` checks that every page and layout reads through the DAL or calls `requireLearner()`, and every action calls it first.
 - **Pipeline endpoint.** Requires `Authorization: Bearer <PLATO_PASSCODE>` and returns only unresolved requests (§11.1).
 - **Content.** Trusted, but still constrained: no raw HTML in Markdown, sanitized SVG (§5.4), and external links open in a new tab with `rel="noopener noreferrer"`.
 

@@ -100,8 +100,17 @@ describe("Today's card", () => {
       kind: "session",
       line: "9 reviews, then Lesson 2 from Recall",
       text: "Your session: 9 reviews, then Lesson 2 from Recall",
+      reviewsOnlyMinutes: 3,
       actions: ["start-session", "reviews-only", "full-lesson"],
     })
+  })
+
+  it("2. Reviews only estimates the reviews it would hold", () => {
+    const minutes = (n: number) =>
+      todayCard(input({ schedules: due(n), courses: [inProgress()] }))
+    expect(minutes(1)).toMatchObject({ reviewsOnlyMinutes: 1 })
+    expect(minutes(4)).toMatchObject({ reviewsOnlyMinutes: 2 })
+    expect(minutes(30)).toMatchObject({ reviewsOnlyMinutes: 3 })
   })
 
   it("2. one review reads singular, and the line follows the session length", () => {
@@ -278,8 +287,14 @@ describe("rows below the card", () => {
         courseId: "b",
         title: "Course b",
         meta: "2 of 4 completed · Checkpoint 1 open",
+        progress: { completed: 2, total: 4 },
       },
-      { courseId: "a", title: "Course a", meta: "1 of 4 completed" },
+      {
+        courseId: "a",
+        title: "Course a",
+        meta: "1 of 4 completed",
+        progress: { completed: 1, total: 4 },
+      },
     ])
     expect(rows.ready).toEqual([
       { courseId: "r", title: "Course r", meta: "4 lessons · ~1 hr" },
