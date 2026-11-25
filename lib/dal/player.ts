@@ -11,12 +11,17 @@ import { notFound, redirect } from "next/navigation"
 
 import { requireLearner } from "@/lib/auth/learner"
 import { now, today } from "@/lib/clock"
-import { getRenderedLesson } from "@/lib/content/render"
-import type { Exercise, ExerciseType } from "@/lib/content/schema"
+import {
+  getRenderedLesson,
+  type RenderedExercise,
+  type RenderedLesson,
+} from "@/lib/content/render"
+import type { Exercise } from "@/lib/content/schema"
 import {
   attempt,
   conceptSchedule,
   draft,
+  guessAnswer,
   lessonProgress,
   session,
 } from "@/lib/db/schema"
@@ -39,15 +44,20 @@ import {
   stepOf,
   warmupPrompts,
   warmupSource,
+  type LessonEvent,
   type LessonStep,
 } from "@/lib/engine/lesson"
 import {
+  isRecallRetry,
   isReviewRetry,
   madeCourseComplete,
+  markExerciseItem,
   markReviewItem,
   nextReviewPosition,
+  recallQueueAfter,
   reviewQueueAfter,
   type EventResult,
+  type ItemAnswer,
   type PlayerEnvelope,
 } from "@/lib/engine/player"
 import {
@@ -80,9 +90,11 @@ import {
   type Target,
 } from "@/lib/engine/status"
 import type {
+  Confidence,
   Day,
   Grade,
   LessonPosition,
+  SelfMark,
   SessionKind,
   SessionPosition,
 } from "@/lib/engine/types"
@@ -116,10 +128,22 @@ export interface PlayerFrameView {
   steps: { current: LessonStep | null; hasWarmup: boolean } | null
 }
 
+/**
+ * An exercise as the player needs it (§8.4): the content with its answer
+ * key, so the client marks at once, and its rendered fields. `briefKey`
+ * names the brief its "In the brief" link opens (`briefKey()`).
+ */
+export interface ExerciseItemView {
+  exercise: Exercise
+  rendered: RenderedExercise
+  briefKey: string
+  /** A short answer's draft key, where it can be answered (Recall). */
+  draftKey?: string
+}
+
 export type ReviewVersionView =
   | { kind: "prompt"; prompt: HastRoot; answer: HastRoot }
-  /** Exercises are answered in T16; until then the item is a stand-in. */
-  | { kind: "exercise"; exerciseId: string; type: ExerciseType }
+  | ({ kind: "exercise" } & ExerciseItemView)
 
 export interface ReviewItemView {
   courseId: string
@@ -128,12 +152,31 @@ export interface ReviewItemView {
   version: ReviewVersionView
 }
 
+/** An answered item, so a reload shows its feedback instead of asking again. */
+export interface AnsweredView {
+  attemptId: string
+  grade: Grade
+  /** What the learner gave; null for a stored answer of an unknown shape. */
+  answer: ItemAnswer | null
+  correct: boolean | null
+  confidence: Confidence | null
+  selfMark: SelfMark | null
+}
+
+/** A rendered brief for `BriefSheet`, with the learner's guesses (WF-E3). */
+export interface BriefView {
+  courseId: string
+  lesson: RenderedLesson
+  guessPicks: Record<string, string>
+}
+
 export interface ReviewUnitView {
   kind: "reviews"
   items: ReviewItemView[]
   index: number
-  /** The current item's answer, so a reload shows it instead of asking again. */
-  answered: { attemptId: string; grade: Grade } | null
+  answered: AnsweredView | null
+  /** Each distinct brief the block's exercises point to, by `briefKey`. */
+  briefs: Record<string, BriefView>
 }
 
 export interface DraftView {
@@ -160,6 +203,23 @@ export interface RecallUnitView {
   exercises: Pick<Exercise, "id" | "pool" | "concepts">[]
 }
 
+/** Recall exercises (WF-F1 to WF-F3), then step 5 (T17). */
+export interface RecallExercisesUnitView {
+  kind: "recall-exercises"
+  courseId: string
+  lessonId: string
+  /** "Picking up where you stopped" (WF-E4.1). */
+  pickingUp: boolean
+  /** The exercises in `recall_queue`, a retry repeated where it was queued. */
+  items: ExerciseItemView[]
+  index: number
+  answered: AnsweredView | null
+  /** The lesson's own brief, by `briefKey`. */
+  briefs: Record<string, BriefView>
+  /** Each short answer's draft (§8.4 Typed text), by draft key. */
+  drafts: Record<string, DraftView>
+}
+
 export interface SummaryUnitView {
   kind: "summary"
   line: string
@@ -181,6 +241,7 @@ export interface PendingUnitView {
 export type PlayerUnitView =
   | ReviewUnitView
   | RecallUnitView
+  | RecallExercisesUnitView
   | SummaryUnitView
   | CourseCompleteUnitView
   | PendingUnitView
@@ -390,7 +451,16 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
               lessonPos,
               entered.pickingUp
             )
-          : { kind: "pending", unit: kind },
+          : lessonPos.step === "recall" && lessonPos.phase === "exercises"
+            ? recallExercisesUnit(
+                tx,
+                cp,
+                pos.lessonId,
+                entered.row.recallQueue ?? [],
+                lessonPos,
+                entered.pickingUp
+              )
+            : { kind: "pending", unit: kind },
     }
   }
 
@@ -454,21 +524,30 @@ function reviewUnit(
     if (!courses.has(id)) courses.set(id, loadCourseState(tx, id))
     return courses.get(id) ?? null
   }
+  const briefs: Record<string, BriefView> = {}
   const items = reviewQueueOf(row).map((item): ReviewItemView => {
     const cp = course(item.courseId)
     if (!cp) throw new Error(`Review of an unknown course ${item.courseId}`)
     const loaded = lessonTeaching(cp, item.conceptId)
+    const rendered = renderedLesson(cp.course.id, loaded.lesson.id)
     const v = item.version
     let version: ReviewVersionView
     if (v.kind === "prompt") {
-      const rendered = getRenderedLesson(cp.course.id, loaded.lesson.id)
-      const prompt = rendered?.concepts[item.conceptId]?.[v.index]
+      const prompt = rendered.concepts[item.conceptId]?.[v.index]
       if (!prompt) throw new Error(`No prompt ${v.index} for ${item.conceptId}`)
       version = { kind: "prompt", ...prompt }
     } else {
       const e = loaded.lesson.exercises.find((e) => e.id === v.exerciseId)
       if (!e) throw new Error(`No exercise ${v.exerciseId}`)
-      version = { kind: "exercise", exerciseId: e.id, type: e.type }
+      const view = exerciseItem(rendered, e)
+      // Reviews show the brief without the learner's guesses: they belong
+      // to the lesson, not to this review.
+      briefs[view.briefKey] ??= {
+        courseId: cp.course.id,
+        lesson: rendered,
+        guessPicks: {},
+      }
+      version = { kind: "exercise", ...view }
     }
     return {
       courseId: cp.course.id,
@@ -477,16 +556,50 @@ function reviewUnit(
       version,
     }
   })
-  let answered: ReviewUnitView["answered"] = null
-  if (pos.answered) {
-    const a = tx
-      .select({ grade: attempt.grade })
-      .from(attempt)
-      .where(eq(attempt.id, pos.answered))
-      .get()
-    if (a?.grade) answered = { attemptId: pos.answered, grade: a.grade }
+  return {
+    kind: "reviews",
+    items,
+    index: pos.index,
+    answered: pos.answered ? readAnswered(tx, pos.answered) : null,
+    briefs,
   }
-  return { kind: "reviews", items, index: pos.index, answered }
+}
+
+/** The key of a lesson's brief in a unit's `briefs`. */
+export const briefKey = (courseId: string, lessonId: string) =>
+  `${courseId}/${lessonId}`
+
+function renderedLesson(courseId: string, lessonId: string): RenderedLesson {
+  const rendered = getRenderedLesson(courseId, lessonId)
+  if (!rendered) throw new Error(`No lesson ${courseId}:${lessonId}`)
+  return rendered
+}
+
+function exerciseItem(
+  rendered: RenderedLesson,
+  exercise: Exercise
+): ExerciseItemView {
+  const r = rendered.exercises[exercise.id]
+  if (!r) throw new Error(`No exercise ${exercise.id}`)
+  return {
+    exercise,
+    rendered: r,
+    briefKey: briefKey(rendered.courseId, rendered.lessonId),
+  }
+}
+
+/** An answered attempt, read back for its feedback (§8.4). */
+function readAnswered(tx: Tx, attemptId: string): AnsweredView | null {
+  const a = tx.select().from(attempt).where(eq(attempt.id, attemptId)).get()
+  if (!a?.grade) return null
+  return {
+    attemptId,
+    grade: a.grade,
+    answer: (a.response as ItemAnswer | null) ?? null,
+    correct: a.correct,
+    confidence: a.confidence,
+    selfMark: a.selfMark,
+  }
 }
 
 /** The draft key of a lesson's Recall text (§6). */
@@ -527,6 +640,65 @@ function recallUnit(
       pool: e.pool,
       concepts: e.concepts,
     })),
+  }
+}
+
+/** The draft key of a short answer's text (§6). */
+export const shortDraftKey = (courseId: string, exerciseId: string) =>
+  `short:${courseId}:${exerciseId}`
+
+function recallExercisesUnit(
+  tx: Tx,
+  cp: CourseState,
+  lessonId: string,
+  queue: readonly string[],
+  position: Extract<LessonPosition, { phase: "exercises" }>,
+  pickingUp: boolean
+): RecallExercisesUnitView {
+  const courseId = cp.course.id
+  const { lesson } = cp.loaded.lessonsById.get(lessonId)!
+  const rendered = renderedLesson(courseId, lessonId)
+  const items = queue.map((id): ExerciseItemView => {
+    const e = lesson.exercises.find((e) => e.id === id)
+    if (!e) throw new Error(`No exercise ${id} in ${lessonId}`)
+    const view = exerciseItem(rendered, e)
+    return e.type === "short"
+      ? { ...view, draftKey: shortDraftKey(courseId, e.id) }
+      : view
+  })
+  const drafts: Record<string, DraftView> = {}
+  for (const { draftKey } of items) {
+    const d = draftKey ? readDraft(tx, draftKey) : undefined
+    if (draftKey && d) drafts[draftKey] = d
+  }
+  const picks = tx
+    .select({ guessId: guessAnswer.guessId, optionId: guessAnswer.optionId })
+    .from(guessAnswer)
+    .where(
+      and(
+        eq(guessAnswer.courseId, courseId),
+        eq(guessAnswer.lessonId, lessonId)
+      )
+    )
+    .all()
+  return {
+    kind: "recall-exercises",
+    courseId,
+    lessonId,
+    pickingUp,
+    items,
+    index: position.index,
+    answered: position.answered ? readAnswered(tx, position.answered) : null,
+    briefs: {
+      [briefKey(courseId, lessonId)]: {
+        courseId,
+        lesson: rendered,
+        guessPicks: Object.fromEntries(
+          picks.map((p) => [p.guessId, p.optionId])
+        ),
+      },
+    },
+    drafts,
   }
 }
 
@@ -759,7 +931,7 @@ function applyLessonEvent(
   row: SessionRow,
   pos: Extract<SessionPosition, { unit: "lesson" }>,
   env: PlayerEnvelope,
-  { at }: { at: number; day: Day }
+  { at, day }: { at: number; day: Day }
 ): Applied {
   const courseId = row.courseId!
   const ref = { courseId, lessonId: pos.lessonId }
@@ -785,9 +957,9 @@ function applyLessonEvent(
     recallQueueLength: current.recallQueue?.length ?? 0,
     keyQuestionCount: loaded.lesson.keyQuestions.length,
   }
-  const advance = (kind: "recall-write" | "recall-tick") => {
+  const advance = (e: LessonEvent) => {
     try {
-      return advanceLesson(current.position!, { kind }, shape)
+      return advanceLesson(current.position!, e, shape)
     } catch (error) {
       if (error instanceof PositionError) throw bad(error.message)
       throw error
@@ -796,7 +968,7 @@ function applyLessonEvent(
 
   switch (event.kind) {
     case "recall-write": {
-      const position = advance("recall-write")
+      const position = advance({ kind: "recall-write" })
       tx.update(lessonProgress)
         .set({ recallText: event.text, position, updatedAt: at })
         .where(where)
@@ -807,7 +979,7 @@ function applyLessonEvent(
       return { position: pos }
     }
     case "recall-tick": {
-      const position = advance("recall-tick")
+      const position = advance({ kind: "recall-tick" })
       const conceptIds = loaded.lesson.concepts.map((c) => c.id)
       const ticked = conceptIds.filter((id) => event.ticked.includes(id))
       const queue = selectRecallExercises(loaded.lesson, ticked)
@@ -822,8 +994,65 @@ function applyLessonEvent(
         .run()
       return { position: pos }
     }
+    case "answer": {
+      // Checked before marking, so an answer elsewhere is refused cleanly.
+      const position = advance({ kind: "answer", attemptId: env.id })
+      if (position.step !== "recall" || position.phase !== "exercises")
+        throw bad("Not at a Recall exercise")
+      const queue = current.recallQueue ?? []
+      const id = queue[position.index]
+      const exercise = loaded.lesson.exercises.find((e) => e.id === id)
+      if (!exercise) throw new Error(`No Recall exercise at ${position.index}`)
+      let marked
+      try {
+        marked = markExerciseItem(exercise, event.answer)
+      } catch (error) {
+        throw bad(error instanceof Error ? error.message : String(error))
+      }
+      tx.insert(attempt)
+        .values({
+          id: env.id,
+          sessionId: row.id,
+          context: "recall",
+          courseId,
+          // Recall exercises tag exactly one concept (§5.2).
+          conceptId: exercise.concepts[0] ?? null,
+          exerciseId: exercise.id,
+          response: event.answer,
+          ...marked,
+          isRetry: isRecallRetry(queue, position.index),
+          day,
+          answeredAt: at,
+        })
+        .run()
+      if (exercise.type === "short")
+        tx.delete(draft)
+          .where(eq(draft.key, shortDraftKey(courseId, exercise.id)))
+          .run()
+      // Recall exercises set only the first interval, at completion (R5).
+      const grown = recallQueueAfter(queue, position.index, marked)
+      tx.update(lessonProgress)
+        .set({
+          position,
+          ...(grown ? { recallQueue: grown } : {}),
+          updatedAt: at,
+        })
+        .where(where)
+        .run()
+      return { position: pos }
+    }
+    case "answer-next": {
+      const position = advance({ kind: "answer-next" })
+      tx.update(lessonProgress)
+        .set({ position, updatedAt: at })
+        .where(where)
+        .run()
+      return { position: pos }
+    }
     default:
-      throw bad(`${event.kind} is not handled in a lesson yet`)
+      throw bad(
+        `${(event as { kind: string }).kind} is not handled in a lesson yet`
+      )
   }
 }
 

@@ -98,7 +98,20 @@ export function markReviewItem(
   const { exerciseId } = item.version
   const exercise = lesson.exercises.find((e) => e.id === exerciseId)
   if (!exercise) throw new Error(`No exercise ${exerciseId}`)
-  return gradeAnswer(exercise as Exercise, answer.response, answer.confidence)
+  return markExerciseItem(exercise as Exercise, answer)
+}
+
+/**
+ * Marks an exercise answer from content (§7.2): the same function on the
+ * client, for instant feedback, and on the server, which stores its result.
+ */
+export function markExerciseItem(
+  exercise: Exercise,
+  answer: ItemAnswer
+): MarkedAnswer {
+  if (answer.kind !== "exercise")
+    throw new Error("An exercise is answered with a response")
+  return gradeAnswer(exercise, answer.response, answer.confidence)
 }
 
 /** Whether the review at `index` is a wrong *Sure*'s retry. */
@@ -117,6 +130,44 @@ export function reviewQueueAfter(
   marked: MarkedAnswer
 ): ReviewQueueItem[] | null {
   return isWrongSure(marked) ? requeueWrongSure(queue, index, reviewKey) : null
+}
+
+/** A Recall exercise's retry key in `recall_queue`: the exercise id. */
+const recallKey = (id: string) => id
+
+/** Whether the Recall exercise at `index` is a wrong *Sure*'s retry. */
+export const isRecallRetry = (queue: readonly string[], index: number) =>
+  isRetryAt(queue, index, recallKey)
+
+/**
+ * `recall_queue` after an answer: grown by the retry after a wrong *Sure*
+ * (§7.2), or null when it is unchanged.
+ */
+export function recallQueueAfter(
+  queue: readonly string[],
+  index: number,
+  marked: MarkedAnswer
+): string[] | null {
+  return isWrongSure(marked) ? requeueWrongSure(queue, index, recallKey) : null
+}
+
+/**
+ * Whether an answered item's feedback says "You'll see this again later this
+ * session": a wrong *Sure* on an item that is not itself the retry, so its
+ * retry is in the queue. Holds on a reload too, from the grown queue.
+ */
+export function showsRequeueNote<T>(
+  queue: readonly T[],
+  index: number,
+  key: (item: T) => string,
+  marked: Pick<MarkedAnswer, "correct" | "confidence">
+): boolean {
+  return (
+    marked.correct === false &&
+    marked.confidence === "sure" &&
+    !isRetryAt(queue, index, key) &&
+    queue.filter((item) => key(item) === key(queue[index])).length > 1
+  )
 }
 
 /** The review block's position after `answer-next`; null at its last item. */
