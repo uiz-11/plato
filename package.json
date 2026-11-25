@@ -15,6 +15,8 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
+    "db:backup": "node scripts/db-backup.ts",
+    "db:restore": "node scripts/db-restore.ts",
     "course:validate": "tsx scripts/course-validate.ts",
     "course:publish": "tsx scripts/course-publish.ts",
     "course:not-built": "tsx scripts/course-not-built.ts",

@@ -42,16 +42,3 @@ export function timeZone(
 export function today(at: number = now()): Day {
   return learningDay(at, timeZone())
 }
-
-/**
- * Start-up check (instrumentation.ts): an unknown `PLATO_TIME_ZONE` would
- * otherwise fail every request, so the server refuses to start.
- */
-export function checkTimeZoneOrExit(): void {
-  try {
-    timeZone()
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : error)
-    process.exit(1)
-  }
-}

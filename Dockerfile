@@ -29,6 +29,9 @@ ENV NODE_ENV=production \
 RUN mkdir -p /data && chown node:node /data
 # `npm run build` has already copied public/ and .next/static/ beside server.js.
 COPY --from=build --chown=node:node /app/.next/standalone ./
+# `db:backup` and `db:restore` run in the container with plain `node` (§12.2).
+COPY --from=build --chown=node:node /app/lib/db/files.ts ./lib/db/files.ts
+COPY --from=build --chown=node:node /app/scripts/db-backup.ts /app/scripts/db-restore.ts ./scripts/
 USER node
 VOLUME ["/data"]
 EXPOSE 3000

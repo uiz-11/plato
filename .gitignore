@@ -54,6 +54,9 @@ next-env.d.ts
 *.db
 *.db-shm
 *.db-wal
+*.db.restore
+*.db.pre-restore-*
+/backups/
 
 # e2e auth state (global setup)
 /e2e/.auth/
