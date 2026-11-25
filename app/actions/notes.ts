@@ -8,6 +8,7 @@ import { Id, QId } from "@/lib/content/schema"
 import {
   insertNote,
   NOTE_MAX_CHARS,
+  reinsertNote,
   removeNote,
   updateNote,
 } from "@/lib/dal/notes"
@@ -35,5 +36,12 @@ export async function editNote(input: unknown): Promise<void> {
 export async function deleteNote(input: unknown): Promise<void> {
   await requireLearner()
   await removeNote(z.strictObject({ id: NoteId }).parse(input))
+  refresh()
+}
+
+/** Undo in the "Note deleted" toast: the note returns as it was. */
+export async function restoreNote(input: unknown): Promise<void> {
+  await requireLearner()
+  await reinsertNote(z.strictObject({ id: NoteId }).parse(input))
   refresh()
 }

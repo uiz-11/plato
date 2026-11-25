@@ -28,6 +28,7 @@ import {
   getSyllabusView,
 } from "./course"
 import { getLibraryView } from "./library"
+import { sessionExists } from "./sessions"
 import { getSettings } from "./settings"
 import { getTodayView } from "./today"
 
@@ -500,6 +501,26 @@ describe("getSettings", () => {
   })
 })
 
+describe("sessionExists", () => {
+  it("finds a started session and nothing else", async () => {
+    db.insert(session)
+      .values({
+        id: "s1",
+        kind: "standard",
+        minutes: 15,
+        courseId: null,
+        reviewQueue: [],
+        checkpointQueue: [],
+        position: { unit: "end", screen: "summary" },
+        activeMs: 0,
+        startedAt: 0,
+      } as typeof session.$inferInsert)
+      .run()
+    expect(await sessionExists("s1")).toBe(true)
+    expect(await sessionExists("s2")).toBe(false)
+  })
+})
+
 describe("requireLearner refusals", () => {
   it.each<[string, () => Promise<unknown>]>([
     ["getTodayView", getTodayView],
@@ -509,6 +530,7 @@ describe("requireLearner refusals", () => {
     ["getSyllabusView", () => getSyllabusView(ENC)],
     ["getAnswersView", () => getAnswersView(ENC)],
     ["getSourcesView", () => getSourcesView(ENC)],
+    ["sessionExists", () => sessionExists("s1")],
   ])("%s redirects to /unlock", async (_, read) => {
     lockGate()
     expect(await digestOf(read())).toMatch(/^NEXT_REDIRECT;[a-z]+;\/unlock;/)

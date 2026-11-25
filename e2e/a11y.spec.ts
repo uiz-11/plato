@@ -9,6 +9,9 @@ const screens: Array<{ name: string; path: string; locked?: boolean }> = [
   { name: "today", path: "/" },
   { name: "new request", path: "/new" },
   { name: "library", path: "/library" },
+  { name: "syllabus", path: "/courses/how-encryption-works/syllabus" },
+  { name: "answers", path: "/courses/how-encryption-works/answers" },
+  { name: "sources", path: "/courses/how-encryption-works/sources" },
 ]
 
 for (const screen of screens) {

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto"
+
 import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -23,7 +25,7 @@ import {
   setupDal,
 } from "@/test/dal"
 
-import { addNote, deleteNote, editNote } from "./notes"
+import { addNote, deleteNote, editNote, restoreNote } from "./notes"
 import { createRequest } from "./requests"
 import { setHideTimer, setSessionMinutes } from "./settings"
 import { skipLesson, unskipLesson } from "./lessons"
@@ -265,6 +267,55 @@ describe("notes", () => {
     await deleteNote({ id })
     expect(notes()).toEqual([])
     expect(refresh).toHaveBeenCalledTimes(3)
+  })
+
+  it("restores a deleted note as it was (Undo)", async () => {
+    const id = randomUUID()
+    db.insert(answerNote)
+      .values({
+        id,
+        courseId: ENC,
+        keyQuestionId: "q1",
+        lessonId: "key-exchange",
+        text: "Mix paint",
+        createdAt: at - 1000,
+        updatedAt: at - 1000,
+      })
+      .run()
+    const before = notes()[0]
+    await deleteNote({ id })
+    expect(notes()).toEqual([])
+    vi.setSystemTime(at + 5000)
+    await restoreNote({ id })
+    // The server's copy: same lesson and creation time.
+    expect(notes()).toEqual([{ ...before, updatedAt: at + 5000 }])
+    expect(refresh).toHaveBeenCalledTimes(2)
+    // Each deletion is undone once.
+    await expect(restoreNote({ id })).rejects.toMatchObject({
+      code: "not_restorable",
+    })
+    expect(notes()).toHaveLength(1)
+  })
+
+  it("restores only notes deleted in the last minute", async () => {
+    const { id } = await addNote({
+      courseId: ENC,
+      keyQuestionId: "q1",
+      text: "Mix paint",
+    })
+    await deleteNote({ id })
+    vi.setSystemTime(at + 60_001)
+    await expect(restoreNote({ id })).rejects.toMatchObject({
+      code: "not_restorable",
+    })
+    // A note that was never deleted here cannot be conjured.
+    await expect(restoreNote({ id: randomUUID() })).rejects.toMatchObject({
+      code: "not_restorable",
+    })
+    await expect(
+      restoreNote({ id, courseId: ENC, text: "x" })
+    ).rejects.toThrow()
+    expect(notes()).toEqual([])
   })
 
   it("is not a progress event", async () => {
@@ -511,6 +562,10 @@ describe("requireLearner refusals", () => {
     [
       "deleteNote",
       () => deleteNote({ id: "00000000-0000-4000-8000-000000000000" }),
+    ],
+    [
+      "restoreNote",
+      () => restoreNote({ id: "00000000-0000-4000-8000-000000000000" }),
     ],
     ["startSession", () => startSession({ kind: "standard", courseId: ENC })],
   ])("%s redirects to /unlock and writes nothing", async (_, run) => {
