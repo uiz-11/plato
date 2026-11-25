@@ -1,6 +1,10 @@
+"use client"
+
 import { STEP_LABEL } from "@/lib/engine/labels"
 import type { LessonStep } from "@/lib/engine/lesson"
 import { cn } from "@/lib/utils"
+
+import { usePlayer } from "./runtime"
 
 const STEPS: readonly LessonStep[] = [
   "warmup",
@@ -24,15 +28,21 @@ const SHORT: Record<LessonStep, string> = {
  * is optional, and done and current steps marked with a symbol as well as
  * shade. Without a warm-up the first reads "Warm up · none". On a phone it is
  * the text "Step 3 of 5 · Read" (WF-I2.1). `current` is null once the lesson
- * is done.
+ * is done. The unit's own report wins, since Recall exercises move on to
+ * step 5 locally.
  */
 export function StepsRow({
-  current,
+  lessonId,
+  current: loaded,
   hasWarmup,
 }: {
+  lessonId: string
   current: LessonStep | null
   hasWarmup: boolean
 }) {
+  const { lessonStep } = usePlayer()
+  const current =
+    lessonStep && lessonStep.lessonId === lessonId ? lessonStep.step : loaded
   const at = current === null ? STEPS.length : STEPS.indexOf(current)
   return (
     <div>

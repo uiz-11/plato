@@ -113,7 +113,9 @@ export function ReviewBlock({
       setAnswered(null)
       setIndex(index + 1)
     } else {
-      startTransition(() => player.finish({ kind: "answer-next" }, expected))
+      startTransition(async () => {
+        await player.finish({ kind: "answer-next" }, expected)
+      })
     }
   }
 

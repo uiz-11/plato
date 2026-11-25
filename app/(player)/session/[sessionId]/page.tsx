@@ -3,6 +3,7 @@ import "katex/dist/katex.min.css"
 import type { Metadata } from "next"
 
 import { Brief, renderContent } from "@/components/plato/content"
+import { BeyondLesson, LessonBrief } from "@/components/plato/lesson-brief"
 import {
   CourseComplete,
   PendingUnit,
@@ -12,6 +13,11 @@ import type {
   ExerciseItem,
   ExerciseNodes,
 } from "@/components/plato/player/exercise"
+import {
+  GuessUnit,
+  ReadUnit,
+  WarmupUnit,
+} from "@/components/plato/player/lesson-steps"
 import { BRIEF_SHEET_PREFIX } from "@/components/plato/player/logic"
 import { PlayerFrame } from "@/components/plato/player/player-frame"
 import { RecallExercises } from "@/components/plato/player/recall-exercises"
@@ -63,6 +69,7 @@ export default async function SessionPage(
         tag={frame.tag}
         timer={frame.timer}
         progress={frame.steps ? <StepsRow {...frame.steps} /> : undefined}
+        skip={frame.skip && { ...frame.skip, expected: view.expected }}
       >
         <UnitBoundary>
           {/* Keyed by the position too, so a refresh that finds the server
@@ -109,11 +116,60 @@ function Unit({ view }: { view: PlayerView }) {
         />
       )
     }
+    case "warmup": {
+      const ctx = { courseId: unit.courseId, surface: "player" as const }
+      return (
+        <WarmupUnit
+          lessonId={unit.lessonId}
+          pickingUp={unit.pickingUp}
+          sourceNumber={unit.sourceNumber}
+          prompts={unit.prompts.map((p) => ({
+            prompt: renderContent(p.prompt, ctx),
+            answer: renderContent(p.answer, ctx),
+          }))}
+          index={unit.index}
+        />
+      )
+    }
+    case "guess": {
+      const ctx = { courseId: unit.courseId, surface: "player" as const }
+      return (
+        <GuessUnit
+          lessonId={unit.lessonId}
+          pickingUp={unit.pickingUp}
+          guesses={unit.guesses.map((g) => ({
+            id: g.id,
+            prompt: renderContent(g.prompt, ctx),
+            options: g.options.map((o) => ({
+              id: o.id,
+              text: renderContent(o.text, ctx),
+            })),
+          }))}
+          index={unit.index}
+        />
+      )
+    }
+    case "read":
+      return (
+        <ReadUnit
+          lessonId={unit.lessonId}
+          pickingUp={unit.pickingUp}
+          readMinutes={unit.readMinutes}
+        >
+          <LessonBrief brief={unit.brief} />
+          <BeyondLesson beyond={unit.beyond} courseId={unit.courseId} />
+        </ReadUnit>
+      )
     case "recall-exercises":
       return (
         <RecallExercises
           lessonId={unit.lessonId}
           pickingUp={unit.pickingUp}
+          stage={unit.stage}
+          lessonLabel={unit.lessonLabel}
+          boards={unit.boards}
+          boardIndex={unit.boardIndex}
+          complete={unit.complete}
           items={unit.items.map((item) => exerciseItem(unit.courseId, item))}
           index={unit.index}
           answered={unit.answered}

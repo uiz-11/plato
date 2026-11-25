@@ -7,10 +7,12 @@ import { z } from "zod"
 import { requireLearner } from "@/lib/auth/learner"
 import { Id } from "@/lib/content/schema"
 import { isTransientDbError } from "@/lib/dal/errors"
+import { NOTE_MAX_CHARS } from "@/lib/dal/notes"
 import {
   applyPlayerEvent,
   exitPlayerSession,
   saveDraftText,
+  undoPlayerSkip,
 } from "@/lib/dal/player"
 import type { EventResult, PlayerEnvelope } from "@/lib/engine/player"
 
@@ -82,6 +84,15 @@ const ItemAnswer = z.discriminatedUnion("kind", [
 
 // Each task adds the events of the screens it builds (§15).
 const PlayerEvent = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("warmup-next") }),
+  z.strictObject({ kind: z.literal("guess-lock"), optionId: Id }),
+  z.strictObject({ kind: z.literal("read-done") }),
+  z.strictObject({
+    kind: z.literal("note-stick"),
+    text: z.string().trim().min(1).max(NOTE_MAX_CHARS),
+  }),
+  z.strictObject({ kind: z.literal("answers-skip") }),
+  z.strictObject({ kind: z.literal("skip-lesson") }),
   z.strictObject({ kind: z.literal("answer"), answer: ItemAnswer }),
   z.strictObject({ kind: z.literal("answer-next") }),
   z.strictObject({ kind: z.literal("recall-write"), text: Text }),
@@ -183,6 +194,27 @@ export async function exitSession(
     })
     return { ok: true }
   })
+  refresh()
+  return result
+}
+
+/**
+ * Undo on the player's "Lesson N skipped" toast (§8.3): clears `skipped` and
+ * returns the session to the lesson at its saved position.
+ */
+export async function undoSkip(
+  sessionId: unknown,
+  lessonId: unknown,
+  skipEventId: unknown
+): Promise<EventResult> {
+  await requireLearner()
+  const result = await refusing(() =>
+    undoPlayerSkip(
+      SessionId.parse(sessionId),
+      Id.parse(lessonId),
+      z.uuid().parse(skipEventId)
+    )
+  )
   refresh()
   return result
 }

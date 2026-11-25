@@ -8,7 +8,13 @@ import { draft, session } from "@/lib/db/schema"
 import { startNewSession } from "@/lib/dal/sessions"
 import { LEAP, putLesson, putSchedule, setNow, setupDal } from "@/test/dal"
 
-import { exitSession, finishUnit, recordEvent, saveDraft } from "./player"
+import {
+  exitSession,
+  finishUnit,
+  recordEvent,
+  saveDraft,
+  undoSkip,
+} from "./player"
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined }),
@@ -82,6 +88,16 @@ describe("player actions", () => {
       randomUUID(),
       { ...rating(0), activeMs: "1" },
     ],
+    [
+      "a blank sticky note",
+      randomUUID(),
+      { ...rating(0), event: { kind: "note-stick", text: "  " } },
+    ],
+    [
+      "a guess without an option",
+      randomUUID(),
+      { ...rating(0), event: { kind: "guess-lock" } },
+    ],
   ])("refuses %s", async (_, sessionId, event) => {
     expect(await recordEvent(sessionId, event)).toEqual({
       ok: false,
@@ -146,5 +162,16 @@ describe("server failures", () => {
     }
     // Once the lock is gone, the same event applies.
     expect(await recordEvent(id, rating(0))).toEqual({ ok: true })
+  })
+})
+
+describe("undoSkip", () => {
+  it("refuses a bad lesson id, and refreshes", async () => {
+    const { id } = await startNewSession({ kind: "reviews_only" })
+    expect(await undoSkip(id, "Not An Id", randomUUID())).toEqual({
+      ok: false,
+      refused: true,
+    })
+    expect(refresh).toHaveBeenCalled()
   })
 })

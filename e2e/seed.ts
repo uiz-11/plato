@@ -167,6 +167,16 @@ export class Seed {
     return this
   }
 
+  /** The course's concepts with a review schedule, with their due days. */
+  schedules(courseId: string): Record<string, string> {
+    const rows = this.db
+      .prepare(
+        "SELECT concept_id, due_day FROM concept_schedule WHERE course_id = ?"
+      )
+      .all(courseId) as { concept_id: string; due_day: string }[]
+    return Object.fromEntries(rows.map((r) => [r.concept_id, r.due_day]))
+  }
+
   /** The course's answer notes' texts, oldest first. */
   notes(courseId: string): string[] {
     return this.db

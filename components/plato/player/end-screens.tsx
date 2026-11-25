@@ -83,15 +83,15 @@ export function CourseComplete({ courseTitle }: { courseTitle: string }) {
         className="min-h-11"
         disabled={pending}
         onClick={() =>
-          startTransition(() =>
-            player.finish(
+          startTransition(async () => {
+            await player.finish(
               { kind: "continue" },
               {
                 session: { unit: "end", screen: "course-complete" },
                 lesson: null,
               }
             )
-          )
+          })
         }
       >
         Continue

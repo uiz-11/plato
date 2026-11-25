@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { EllipsisIcon, XIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { setHideTimer } from "@/app/actions/settings"
 import { Badge } from "@/components/ui/badge"
@@ -13,10 +14,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { lessonSkippedToast } from "@/lib/engine/labels"
 import { minutesUsedLabel, timerLabel } from "@/lib/engine/player"
 import type { SessionKind } from "@/lib/engine/types"
 
-import { usePlayer } from "./runtime"
+import type { ExpectedPosition } from "@/lib/engine/player"
+
+import { newEventId, usePlayer } from "./runtime"
+
+/** The lesson ⋯ *Mark as skipped* skips, and where the server has it. */
+export interface SkipTarget {
+  lessonId: string
+  number: number
+  /** The unit's loaded position, used until the unit reports its own. */
+  expected: ExpectedPosition
+}
 
 export interface FrameProps {
   kind: SessionKind
@@ -30,6 +42,8 @@ export interface FrameProps {
   timer: "live" | "used" | "none"
   /** The progress row under the top bar, when the frame draws it. */
   progress?: React.ReactNode
+  /** *Mark as skipped* in ⋯, while a lesson is the current unit (§9.2). */
+  skip?: SkipTarget | null
   children: React.ReactNode
 }
 
@@ -61,11 +75,22 @@ export function PlayerFrame({
   tag,
   timer,
   progress,
+  skip = null,
   children,
 }: FrameProps) {
   const player = usePlayer()
   const [hidden, setHidden] = useState(initialHide)
   const [exiting, startExit] = useTransition()
+  const [, startSkip] = useTransition()
+  const skipToasts = useRef(new Set<string | number>())
+  // The toast's Undo belongs to this session's player: leaving it (Back to
+  // Today, a new session) takes the toast away.
+  useEffect(
+    () => () => {
+      for (const id of skipToasts.current) toast.dismiss(id)
+    },
+    []
+  )
   const router = useRouter()
   const ended = timer !== "live"
   useTick(timer === "live" && !hidden)
@@ -75,6 +100,33 @@ export function PlayerFrame({
     setHidden(next)
     setHideTimer(next).catch(() => {
       // The choice still holds on this screen; it is only not remembered.
+    })
+  }
+
+  // The player's *Mark as skipped* (§7.7): the session moves on to its next
+  // target, and the toast's Undo returns to the lesson where it stopped.
+  const skipLesson = (s: SkipTarget) => {
+    const reported = player.current()
+    const expected =
+      reported?.session.unit === "lesson" &&
+      reported.session.lessonId === s.lessonId
+        ? reported
+        : s.expected
+    const id = newEventId()
+    startSkip(async () => {
+      const ok = await player.finish({ kind: "skip-lesson" }, expected, { id })
+      if (!ok) return
+      const toastId = toast(lessonSkippedToast(s.number), {
+        // Long enough to reach Undo by keyboard or screen reader.
+        duration: 10_000,
+        action: {
+          label: "Undo",
+          onClick: () => startSkip(() => player.undoSkip(s.lessonId, id)),
+        },
+        onDismiss: () => skipToasts.current.delete(toastId),
+        onAutoClose: () => skipToasts.current.delete(toastId),
+      })
+      skipToasts.current.add(toastId)
     })
   }
 
@@ -138,6 +190,14 @@ export function PlayerFrame({
             <DropdownMenuItem onClick={toggleTimer}>
               {hidden ? "Show timer" : "Hide timer"}
             </DropdownMenuItem>
+            {skip ? (
+              <DropdownMenuItem
+                disabled={player.busy}
+                onClick={() => skipLesson(skip)}
+              >
+                Mark as skipped
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
