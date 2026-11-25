@@ -247,6 +247,44 @@ export class Seed {
       .get(id) as { position: string; ended_at: number | null }
   }
 
+  /**
+   * A session at `position` in `courseId`, started a minute ago; ended when
+   * the position is an end screen. Returns its id.
+   */
+  session(
+    courseId: string,
+    position: { unit: string; [key: string]: unknown },
+    opts: { checkpointQueue?: string[]; activeMs?: number } = {}
+  ): string {
+    const id = randomUUID()
+    const now = Date.now()
+    this.db
+      .prepare(
+        `INSERT INTO session
+           (id, kind, minutes, course_id, review_queue, checkpoint_queue,
+            position, active_ms, started_at, ended_at)
+         VALUES (?, 'standard', 15, ?, '[]', ?, ?, ?, ?, ?)`
+      )
+      .run(
+        id,
+        courseId,
+        opts.checkpointQueue ? JSON.stringify(opts.checkpointQueue) : null,
+        JSON.stringify(position),
+        opts.activeMs ?? 0,
+        now - 60_000,
+        position.unit === "end" ? now - 1000 : null
+      )
+    return id
+  }
+
+  /** Sets a session's active time (§7.7), as if that much time had passed. */
+  activeMs(sessionId: string, ms: number): this {
+    this.db
+      .prepare("UPDATE session SET active_ms = ? WHERE id = ?")
+      .run(ms, sessionId)
+    return this
+  }
+
   /** A draft's text, or undefined when there is none (§6). */
   draft(key: string): string | undefined {
     return this.db

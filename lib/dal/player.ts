@@ -8,7 +8,7 @@ import "server-only"
 import { randomUUID } from "node:crypto"
 
 import type { Root as HastRoot } from "hast"
-import { and, asc, desc, eq, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, sql } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 
 import { requireLearner } from "@/lib/auth/learner"
@@ -32,12 +32,18 @@ import {
 import { getDb } from "@/lib/db/client"
 import { isProgressEvent } from "@/lib/engine/day"
 import {
+  courseCompleteLine,
   lessonTitle,
+  moduleLessonsLabel,
+  moduleMasteryHeading,
+  notesLabel,
   reviewBlockTitle,
+  scoreLabel,
   sessionWork,
   summaryLine,
   targetLabel,
 } from "@/lib/engine/labels"
+import { mastery, type Mastery } from "@/lib/engine/mastery"
 import {
   advanceLesson,
   celebrationLine,
@@ -57,6 +63,8 @@ import {
   type LessonStep,
 } from "@/lib/engine/lesson"
 import {
+  checkpointQueueAfter,
+  isCheckpointRetry,
   isRecallRetry,
   isReviewRetry,
   madeCourseComplete,
@@ -88,12 +96,12 @@ import {
   unitKey,
   wouldHoldWork,
   type NextUnitInput,
-  type PlayerUnitKind,
   type ReviewQueueItem,
 } from "@/lib/engine/session"
 import {
   checkpointNumber,
   checkpointQueue,
+  checkpointScore,
   checkpointStatus,
   courseStatus,
   lessonNumber,
@@ -101,6 +109,7 @@ import {
   moduleById,
   nextTarget,
   skippedInSession,
+  syllabusLessons,
   type Target,
 } from "@/lib/engine/status"
 import type {
@@ -318,15 +327,47 @@ export interface SummaryUnitView {
   keepGoing: { courseId: string | null } | null
 }
 
-export interface CourseCompleteUnitView {
-  kind: "course-complete"
-  courseTitle: string
+/** The mastery summary after a checkpoint's last exercise (WF-G2). */
+export interface MasterySummaryView {
+  /** "Module 1 mastery". */
+  heading: string
+  /** "7 of 10 right". */
+  score: string
+  /** One row per concept of the module, in syllabus order. */
+  concepts: { conceptId: string; statement: string; mastery: Mastery }[]
 }
 
-/** A unit whose screens come in a later task (T16–T18). */
-export interface PendingUnitView {
-  kind: "pending"
-  unit: PlayerUnitKind
+/**
+ * A checkpoint (WF-G1): each exercise in `checkpoint_queue`, then the
+ * mastery summary (WF-G2) once `index` reaches the queue's length (§8.4).
+ */
+export interface CheckpointUnitView {
+  kind: "checkpoint"
+  courseId: string
+  moduleId: string
+  /** "Lessons 1–3", the lessons the checkpoint covers. */
+  lessons: string
+  /** The number of exercises in the checkpoint, the label's total (§7.6). */
+  total: number
+  /** The exercises in the queue, a retry repeated where it was queued. */
+  items: ExerciseItemView[]
+  index: number
+  answered: AnsweredView | null
+  /** Each distinct brief the exercises point to, by `briefKey`. */
+  briefs: Record<string, BriefView>
+  /** Each short answer's draft (§8.4 Typed text), by draft key. */
+  drafts: Record<string, DraftView>
+  /** Set once the last exercise is answered. */
+  mastery: MasterySummaryView | null
+}
+
+/** Course complete (WF-G3): the course's shape, then its key questions. */
+export interface CourseCompleteUnitView {
+  kind: "course-complete"
+  /** "4 lessons · 2 checkpoints · reviews continue for all 12 concepts". */
+  line: string
+  /** Each key question with "{k} notes". */
+  keyQuestions: { id: string; text: string; notes: string }[]
 }
 
 export type PlayerUnitView =
@@ -337,8 +378,8 @@ export type PlayerUnitView =
   | RecallUnitView
   | RecallExercisesUnitView
   | SummaryUnitView
+  | CheckpointUnitView
   | CourseCompleteUnitView
-  | PendingUnitView
 
 export interface PlayerView {
   sessionId: string
@@ -585,14 +626,15 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
         subtitle: cp.course.title,
         tag: status === "done" ? "done" : "open",
       },
-      unit: { kind: "pending", unit: "checkpoint" },
+      unit: checkpointUnit(tx, row, cp, pos, day),
     }
   }
 
   // The end screens (§7.7).
   const expected = { session: pos, lesson: null }
-  if (pos.screen === "course-complete") {
-    const title = cp?.course.title ?? ""
+  // A course no longer listed has nothing to celebrate: the summary stands in.
+  if (pos.screen === "course-complete" && cp) {
+    const title = cp.course.title
     return {
       ...base,
       expected,
@@ -605,7 +647,7 @@ function buildView(tx: Tx, row: SessionRow, at: number, day: Day): PlayerView {
         steps: null,
         skip: null,
       },
-      unit: { kind: "course-complete", courseTitle: title },
+      unit: courseCompleteUnit(tx, cp),
     }
   }
   return {
@@ -986,6 +1028,134 @@ function recallExercisesUnit(
   }
 }
 
+/** The lesson of `cp` whose exercises include `exerciseId`. */
+function lessonWithExercise(cp: CourseState, exerciseId: string) {
+  for (const l of cp.loaded.lessons) {
+    const exercise = l.lesson.exercises.find((e) => e.id === exerciseId)
+    if (exercise) return { loaded: l, exercise }
+  }
+  throw new Error(`No exercise ${cp.course.id}:${exerciseId}`)
+}
+
+function checkpointUnit(
+  tx: Tx,
+  row: SessionRow,
+  cp: CourseState,
+  pos: Extract<SessionPosition, { unit: "checkpoint" }>,
+  day: Day
+): CheckpointUnitView {
+  const courseId = cp.course.id
+  const mod = moduleById(cp.course, pos.moduleId)
+  const queue = row.checkpointQueue ?? []
+  const over = pos.index >= queue.length
+  const briefs: Record<string, BriefView> = {}
+  const drafts: Record<string, DraftView> = {}
+  const items = over
+    ? []
+    : queue.map((id): ExerciseItemView => {
+        const { loaded, exercise } = lessonWithExercise(cp, id)
+        const rendered = renderedLesson(courseId, loaded.lesson.id)
+        const view = exerciseItem(rendered, exercise)
+        // Like reviews, without the learner's guesses: they belong to the
+        // lesson, not to the checkpoint.
+        briefs[view.briefKey] ??= { courseId, lesson: rendered, guessPicks: {} }
+        if (exercise.type !== "short") return view
+        const draftKey = shortDraftKey(courseId, exercise.id)
+        const d = readDraft(tx, draftKey)
+        if (d) drafts[draftKey] = d
+        return { ...view, draftKey }
+      })
+  return {
+    kind: "checkpoint",
+    courseId,
+    moduleId: mod.id,
+    lessons: moduleLessonsLabel(cp.course, mod.id),
+    total: mod.checkpoint.length,
+    items,
+    index: pos.index,
+    answered: !over && pos.answered ? readAnswered(tx, pos.answered) : null,
+    briefs,
+    drafts,
+    mastery: over ? masterySummary(tx, cp, mod.id, day) : null,
+  }
+}
+
+/** WF-G2: the score from every session's answers, then each concept. */
+function masterySummary(
+  tx: Tx,
+  cp: CourseState,
+  moduleId: string,
+  day: Day
+): MasterySummaryView {
+  const courseId = cp.course.id
+  const mod = moduleById(cp.course, moduleId)
+  const attempts = tx
+    .select({
+      exerciseId: attempt.exerciseId,
+      correct: attempt.correct,
+      selfMark: attempt.selfMark,
+      isRetry: attempt.isRetry,
+      answeredAt: attempt.answeredAt,
+    })
+    .from(attempt)
+    .where(
+      and(eq(attempt.courseId, courseId), eq(attempt.context, "checkpoint"))
+    )
+    .all()
+    .flatMap((a) => (a.exerciseId ? [{ ...a, exerciseId: a.exerciseId }] : []))
+  const { right, total } = checkpointScore(mod, attempts)
+  const schedules = new Map(
+    tx
+      .select()
+      .from(conceptSchedule)
+      .where(eq(conceptSchedule.courseId, courseId))
+      .all()
+      .map((r) => [r.conceptId, r])
+  )
+  return {
+    heading: moduleMasteryHeading(checkpointNumber(cp.course, moduleId)),
+    score: scoreLabel(right, total),
+    concepts: mod.lessons.flatMap((lessonId) =>
+      lessonOf(cp, lessonId).lesson.concepts.map((c) => {
+        const s = schedules.get(c.id)
+        return {
+          conceptId: c.id,
+          statement: c.statement,
+          mastery: s ? mastery(s, day) : ("not_yet_reviewed" as const),
+        }
+      })
+    ),
+  }
+}
+
+/** WF-G3: the course's shape, then each key question with its notes. */
+function courseCompleteUnit(tx: Tx, cp: CourseState): CourseCompleteUnitView {
+  const courseId = cp.course.id
+  const counts = new Map(
+    tx
+      .select({ qid: answerNote.keyQuestionId, n: count() })
+      .from(answerNote)
+      .where(eq(answerNote.courseId, courseId))
+      .groupBy(answerNote.keyQuestionId)
+      .all()
+      .map((r) => [r.qid, r.n])
+  )
+  // The syllabus's lessons, as the line counts them.
+  const concepts = syllabusLessons(cp.course).reduce(
+    (n, id) => n + lessonOf(cp, id).lesson.concepts.length,
+    0
+  )
+  return {
+    kind: "course-complete",
+    line: courseCompleteLine(cp.course, concepts),
+    keyQuestions: cp.course.keyQuestions.map((q) => ({
+      id: q.id,
+      text: q.text,
+      notes: notesLabel(counts.get(q.id) ?? 0),
+    })),
+  }
+}
+
 function summaryUnit(
   tx: Tx,
   row: SessionRow,
@@ -1127,12 +1297,7 @@ function apply(
     case "lesson":
       return applyLessonEvent(tx, row, pos, env, clock)
     case "checkpoint":
-      if (event.kind === "continue") {
-        const queue = row.checkpointQueue ?? []
-        if (pos.index !== queue.length) throw bad("The checkpoint is not over")
-        return afterTarget(tx, row, "checkpoint")
-      }
-      throw bad(`${event.kind} is not handled in a checkpoint yet`)
+      return applyCheckpointEvent(tx, row, pos, env, clock)
     case "end":
       if (event.kind === "continue" && pos.screen === "course-complete")
         return { position: { unit: "end", screen: "summary" } }
@@ -1209,6 +1374,129 @@ function applyReviewEvent(
   return {
     position: { unit: "reviews", index: pos.index, answered: env.id },
     ...(grown ? { reviewQueue: grown } : {}),
+  }
+}
+
+/**
+ * A checkpoint's events (§7.6, §8.4): each answer is recorded and is a review
+ * event for the concepts it tags that were completed on an earlier day (R5);
+ * a wrong *Sure* comes back later. Next on the last exercise leads to the
+ * mastery summary, with no budget check; **Continue** there moves on.
+ */
+function applyCheckpointEvent(
+  tx: Tx,
+  row: SessionRow,
+  pos: Extract<SessionPosition, { unit: "checkpoint" }>,
+  env: PlayerEnvelope,
+  { at, day }: { at: number; day: Day }
+): Applied {
+  const queue = row.checkpointQueue ?? []
+  const { event } = env
+  if (event.kind === "continue") {
+    if (pos.index < queue.length) throw bad("The checkpoint is not over")
+    return afterTarget(tx, row, "checkpoint")
+  }
+  if (pos.index >= queue.length) throw bad("The checkpoint is over")
+  const courseId = row.courseId
+  const cp = courseId ? loadCourseState(tx, courseId) : null
+  if (!cp) throw new Error(`Session ${row.id} has a checkpoint but no course`)
+
+  switch (event.kind) {
+    case "budget-end": {
+      if (pos.answered !== undefined) throw bad("The exercise is answered")
+      return {
+        position: nextSessionPosition({
+          kind: row.kind,
+          minutes: row.minutes,
+          activeMs: row.activeMs,
+          madeCourseComplete: sessionMadeComplete(tx, row, cp),
+          finished: "budget-end",
+          pending: {
+            position: {
+              unit: "checkpoint",
+              moduleId: pos.moduleId,
+              index: pos.index,
+            },
+            estimateSeconds: checkpointExerciseEstimate,
+          },
+        }),
+      }
+    }
+    case "answer-next": {
+      if (pos.answered === undefined) throw bad("The exercise is not answered")
+      return {
+        position: {
+          unit: "checkpoint",
+          moduleId: pos.moduleId,
+          index: pos.index + 1,
+        },
+      }
+    }
+    case "answer": {
+      if (pos.answered !== undefined) throw bad("The exercise is answered")
+      const { exercise } = lessonWithExercise(cp, queue[pos.index]!)
+      let marked
+      try {
+        marked = markExerciseItem(exercise, event.answer)
+      } catch (error) {
+        throw bad(error instanceof Error ? error.message : String(error))
+      }
+      const isRetry = isCheckpointRetry(queue, pos.index)
+      tx.insert(attempt)
+        .values({
+          id: env.id,
+          sessionId: row.id,
+          context: "checkpoint",
+          courseId: cp.course.id,
+          conceptId: null,
+          exerciseId: exercise.id,
+          response: event.answer,
+          ...marked,
+          isRetry,
+          day,
+          answeredAt: at,
+        })
+        .run()
+      if (exercise.type === "short")
+        tx.delete(draft)
+          .where(eq(draft.key, shortDraftKey(cp.course.id, exercise.id)))
+          .run()
+
+      // A review event for each tagged concept completed before today (R5).
+      // The version cursor belongs to reviews and does not move.
+      const schedules = new Map(
+        tx
+          .select()
+          .from(conceptSchedule)
+          .where(eq(conceptSchedule.courseId, cp.course.id))
+          .all()
+          .map((r) => [r.conceptId, r])
+      )
+      for (const conceptId of reviewEventConcepts(
+        { context: "checkpoint", isRetry, concepts: exercise.concepts },
+        schedules,
+        day
+      )) {
+        const next = applyReview(schedules.get(conceptId)!, marked.grade, day)
+        tx.update(conceptSchedule)
+          .set(next)
+          .where(
+            and(
+              eq(conceptSchedule.courseId, cp.course.id),
+              eq(conceptSchedule.conceptId, conceptId)
+            )
+          )
+          .run()
+      }
+
+      const grown = checkpointQueueAfter(queue, pos.index, marked)
+      return {
+        position: { ...pos, answered: env.id },
+        ...(grown ? { checkpointQueue: grown } : {}),
+      }
+    }
+    default:
+      throw bad(`${event.kind} does not apply in a checkpoint`)
   }
 }
 
