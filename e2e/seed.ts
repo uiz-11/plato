@@ -94,6 +94,16 @@ export class Seed {
     return this
   }
 
+  /** A course request made `minutesAgo` minutes ago. */
+  request(id: string, text: string, minutesAgo = 0): this {
+    this.db
+      .prepare(
+        "INSERT INTO course_request (id, text, created_at) VALUES (?, ?, ?)"
+      )
+      .run(id, text, Date.now() - minutesAgo * 60_000)
+    return this
+  }
+
   /** Completes `lessonId` on `day(offset)`. */
   completeLesson(courseId: string, lessonId: string, offset: number): this {
     this.db

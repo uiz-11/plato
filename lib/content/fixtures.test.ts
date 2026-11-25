@@ -33,7 +33,10 @@ describe("fixture courses", () => {
       ["how-encryption-works", true],
       ["leap-years", true],
     ])
-    expect(readNotBuilt(root)).toEqual([])
+    // One decision, for the Not built request in e2e/pipeline-export.spec.ts.
+    expect(readNotBuilt(root).map((n) => n.requestId)).toEqual([
+      "5d0c3b8e-7a41-4f2e-9c6d-1e2f3a4b5c6d",
+    ])
   })
 
   it("the main course has two modules, four lessons and everything a brief can hold", () => {

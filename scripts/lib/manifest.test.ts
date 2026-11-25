@@ -29,12 +29,13 @@ afterEach(() => {
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true })
 })
 
-/** The fixture courses as drafts: nothing published yet. */
+/** The fixture courses as drafts: nothing published or decided yet. */
 function draftRoot(): string {
   const root = mkdtempSync(join(tmpdir(), "plato-manifest-"))
   roots.push(root)
   cpSync(FIXTURES, root, { recursive: true })
   writeFileSync(join(root, "published.json"), formatPublished([]))
+  writeFileSync(join(root, "not-built.json"), formatNotBuilt([]))
   return root
 }
 
