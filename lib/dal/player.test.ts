@@ -1260,6 +1260,292 @@ describe("after the review block, and Continue", () => {
   })
 })
 
+describe("a checkpoint", () => {
+  /** The leap-years lesson done three days ago; nothing due today. */
+  function leapDone() {
+    putLesson(db, LEAP, "leap-rule", { at: at - 3 * 864e5, day: "2026-11-21" })
+    for (const id of LEAP_CONCEPTS)
+      putSchedule(db, LEAP, id, {
+        dueDay: "2026-11-26",
+        lastEventDay: "2026-11-21",
+        intervalDays: 5,
+      })
+  }
+
+  const cpAt = (index: number, answered?: string): ExpectedPosition => ({
+    session: answered
+      ? { unit: "checkpoint", moduleId: "the-rule", index, answered }
+      : { unit: "checkpoint", moduleId: "the-rule", index },
+    lesson: null,
+  })
+
+  const exercise = (
+    response: Record<string, unknown>,
+    confidence: "sure" | "not_sure" | "guess" | null = "sure"
+  ) =>
+    ({
+      kind: "answer",
+      answer: { kind: "exercise", response, confidence },
+    }) as PlayerEvent
+
+  /** Answers the item at `index`, then Next. */
+  async function answerAt(
+    id: string,
+    index: number,
+    event: PlayerEvent,
+    activeMs = 1000
+  ) {
+    const eventId = randomUUID()
+    expect(await send(id, { expected: cpAt(index) }, event, eventId)).toEqual({
+      ok: true,
+    })
+    expect(
+      await send(
+        id,
+        { expected: cpAt(index, eventId) },
+        { kind: "answer-next" },
+        randomUUID(),
+        activeMs
+      )
+    ).toEqual({ ok: true })
+  }
+
+  it("shows the queue's exercises with their briefs", async () => {
+    leapDone()
+    const { id } = await startNewSession({ kind: "standard", courseId: LEAP })
+    const view = await getPlayerUnit(id)
+    expect(view.frame).toMatchObject({
+      title: "Checkpoint 1",
+      subtitle: "Why leap years exist",
+      tag: "open",
+    })
+    if (view.unit.kind !== "checkpoint") throw new Error("not a checkpoint")
+    expect(view.unit).toMatchObject({
+      lessons: "Lesson 1",
+      total: 4,
+      index: 0,
+      answered: null,
+      mastery: null,
+    })
+    expect(view.unit.items.map((i) => i.exercise.id)).toEqual([
+      "x-leap-2100",
+      "x-leap-drift",
+      "x-leap-julian",
+      "x-leap-why",
+    ])
+    expect(view.unit.items[3]!.draftKey).toBe(shortDraftKey(LEAP, "x-leap-why"))
+    expect(Object.keys(view.unit.briefs)).toEqual([`${LEAP}/leap-rule`])
+  })
+
+  it("records answers as review events, re-queues a wrong Sure, then shows mastery", async () => {
+    leapDone()
+    const { id } = await startNewSession({ kind: "standard", courseId: LEAP })
+    await saveDraftText({
+      key: shortDraftKey(LEAP, "x-leap-why"),
+      text: "drift",
+      updatedAt: at,
+    })
+
+    await answerAt(id, 0, exercise({ type: "fill", text: "2400" }))
+    const greg = db
+      .select()
+      .from(conceptSchedule)
+      .all()
+      .find((r) => r.conceptId === "c-gregorian-rule")!
+    expect(greg).toMatchObject({
+      laterDayReviews: 1,
+      lastEventDay: DAY,
+      lastGrade: "remembered",
+      versionCursor: 0,
+    })
+
+    // A wrong Sure comes back at the end of the queue.
+    await answerAt(
+      id,
+      1,
+      exercise({ type: "mc", optionId: "x-leap-drift-100" })
+    )
+    expect(sessionRow(id).checkpointQueue).toEqual([
+      "x-leap-2100",
+      "x-leap-drift",
+      "x-leap-julian",
+      "x-leap-why",
+      "x-leap-drift",
+    ])
+    await answerAt(
+      id,
+      2,
+      exercise({ type: "scenario", optionId: "x-leap-julian-drop" })
+    )
+    await answerAt(
+      id,
+      3,
+      exercise({ type: "short", text: "drift", ticked: [0, 1] }, null)
+    )
+    expect(db.select().from(draft).all()).toEqual([])
+    await answerAt(id, 4, exercise({ type: "mc", optionId: "x-leap-drift-97" }))
+
+    const attempts = db
+      .select()
+      .from(attempt)
+      .all()
+      .filter((a) => a.context === "checkpoint")
+    expect(attempts.map((a) => [a.exerciseId, a.isRetry])).toEqual([
+      ["x-leap-2100", false],
+      ["x-leap-drift", false],
+      ["x-leap-julian", false],
+      ["x-leap-why", false],
+      ["x-leap-drift", true],
+    ])
+
+    // The mastery summary: the retry does not count toward the score.
+    const view = await getPlayerUnit(id)
+    expect(view.frame.tag).toBe("done")
+    if (view.unit.kind !== "checkpoint") throw new Error("not a checkpoint")
+    expect(view.unit.index).toBe(5)
+    expect(view.unit.mastery).toEqual({
+      heading: "Module 1 mastery",
+      score: "3 of 4 right",
+      concepts: [
+        expect.objectContaining({
+          conceptId: "c-tropical-year",
+          mastery: expect.any(String),
+        }),
+        expect.objectContaining({ conceptId: "c-julian", mastery: "good" }),
+        expect.objectContaining({ conceptId: "c-gregorian-rule" }),
+      ],
+    })
+
+    // Continue: the course is now Complete, so course complete first.
+    expect(await send(id, { expected: cpAt(5) }, { kind: "continue" })).toEqual(
+      { ok: true }
+    )
+    expect(sessionRow(id).position).toEqual({
+      unit: "end",
+      screen: "course-complete",
+    })
+    expect(sessionRow(id).endedAt).toBe(at)
+    db.insert(answerNote)
+      .values({
+        id: randomUUID(),
+        courseId: LEAP,
+        keyQuestionId: "q2",
+        lessonId: "leap-rule",
+        text: "the 400 rule",
+        createdAt: at,
+        updatedAt: at,
+      })
+      .run()
+    const done = await getPlayerUnit(id)
+    expect(done.frame).toMatchObject({
+      title: "Why leap years exist",
+      tag: "complete",
+      timer: "none",
+    })
+    expect(done.unit).toEqual({
+      kind: "course-complete",
+      line: "1 lesson · 1 checkpoint · reviews continue for all 3 concepts",
+      keyQuestions: [
+        expect.objectContaining({ id: "q1", notes: "0 notes" }),
+        expect.objectContaining({ id: "q2", notes: "1 note" }),
+        expect.objectContaining({ id: "q3", notes: "0 notes" }),
+      ],
+    })
+  })
+
+  it("leaves a checkpoint taken the day its lesson was done unreviewed", async () => {
+    putLesson(db, LEAP, "leap-rule", { at: at - 1000, day: DAY })
+    for (const id of LEAP_CONCEPTS)
+      putSchedule(db, LEAP, id, { dueDay: "2026-11-26", lastEventDay: DAY })
+    const { id } = await startNewSession({ kind: "standard", courseId: LEAP })
+    await answerAt(id, 0, exercise({ type: "fill", text: "2400" }))
+    expect(
+      db
+        .select()
+        .from(conceptSchedule)
+        .all()
+        .map((r) => r.laterDayReviews)
+    ).toEqual([0, 0, 0])
+  })
+
+  it("budget-end ends the session only when the server agrees", async () => {
+    leapDone()
+    const { id } = await startNewSession({ kind: "standard", courseId: LEAP })
+    await answerAt(id, 0, exercise({ type: "fill", text: "2400" }))
+    // Time left for the next exercise: it stays.
+    expect(
+      await send(id, { expected: cpAt(1) }, { kind: "budget-end" })
+    ).toEqual({ ok: true })
+    expect(sessionRow(id).position).toMatchObject({ index: 1 })
+    expect(
+      await send(
+        id,
+        { expected: cpAt(1) },
+        { kind: "budget-end" },
+        randomUUID(),
+        15 * 60_000
+      )
+    ).toEqual({ ok: true })
+    expect(sessionRow(id)).toMatchObject({
+      position: { unit: "end", screen: "summary" },
+      endedAt: at,
+    })
+    const view = await getPlayerUnit(id)
+    expect(view.unit).toMatchObject({
+      kind: "summary",
+      line: "1 exercise of Checkpoint 1. Next time, Checkpoint 1.",
+    })
+  })
+
+  it("resumes with only the unanswered exercises in a later session", async () => {
+    leapDone()
+    const first = await startNewSession({ kind: "standard", courseId: LEAP })
+    await answerAt(first.id, 0, exercise({ type: "fill", text: "2400" }))
+    await exitPlayerSession(first.id, { activeMs: 1000, drafts: [] })
+    const { id } = await startNewSession({ kind: "standard", courseId: LEAP })
+    expect(sessionRow(id).checkpointQueue).toEqual([
+      "x-leap-drift",
+      "x-leap-julian",
+      "x-leap-why",
+    ])
+    const view = await getPlayerUnit(id)
+    expect(view.unit).toMatchObject({ kind: "checkpoint", total: 4, index: 0 })
+  })
+
+  it("shows the summary for course complete when the course is gone", async () => {
+    const id = randomUUID()
+    db.insert(session)
+      .values({
+        id,
+        kind: "standard",
+        minutes: 15,
+        courseId: "no-such-course",
+        reviewQueue: [],
+        checkpointQueue: null,
+        position: { unit: "end", screen: "course-complete" },
+        lastEventId: null,
+        activeMs: 0,
+        startedAt: at - 60_000,
+        endedAt: at - 1000,
+      })
+      .run()
+    const view = await getPlayerUnit(id)
+    expect(view.frame.title).toBe("Session complete")
+    expect(view.unit.kind).toBe("summary")
+  })
+
+  it("refuses Next before an answer and Continue before the end", async () => {
+    leapDone()
+    const { id } = await startNewSession({ kind: "standard", courseId: LEAP })
+    await expect(
+      send(id, { expected: cpAt(0) }, { kind: "answer-next" })
+    ).rejects.toThrow(/not answered/)
+    await expect(
+      send(id, { expected: cpAt(0) }, { kind: "continue" })
+    ).rejects.toThrow(/not over/)
+  })
+})
+
 describe("requireLearner refusals", () => {
   it.each<[string, () => Promise<unknown>]>([
     ["getPlayerUnit", () => getPlayerUnit(randomUUID())],

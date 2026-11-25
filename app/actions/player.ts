@@ -100,6 +100,7 @@ const PlayerEvent = z.discriminatedUnion("kind", [
     kind: z.literal("recall-tick"),
     ticked: z.array(Id).max(20),
   }),
+  z.strictObject({ kind: z.literal("budget-end") }),
   z.strictObject({ kind: z.literal("continue") }),
 ])
 

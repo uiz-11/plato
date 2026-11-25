@@ -4,9 +4,9 @@ import type { Metadata } from "next"
 
 import { Brief, renderContent } from "@/components/plato/content"
 import { BeyondLesson, LessonBrief } from "@/components/plato/lesson-brief"
+import { CheckpointUnit } from "@/components/plato/player/checkpoint-unit"
 import {
   CourseComplete,
-  PendingUnit,
   SessionComplete,
 } from "@/components/plato/player/end-screens"
 import type {
@@ -192,10 +192,26 @@ function Unit({ view }: { view: PlayerView }) {
       )
     case "summary":
       return <SessionComplete line={unit.line} keepGoing={unit.keepGoing} />
+    case "checkpoint":
+      return (
+        <CheckpointUnit
+          moduleId={unit.moduleId}
+          lessons={unit.lessons}
+          total={unit.total}
+          items={unit.items.map((item) => exerciseItem(unit.courseId, item))}
+          index={unit.index}
+          answered={unit.answered}
+          briefs={briefNodes(unit.briefs)}
+          drafts={unit.drafts}
+          mastery={unit.mastery}
+          kind={view.kind}
+          minutes={view.minutes}
+        />
+      )
     case "course-complete":
-      return <CourseComplete courseTitle={unit.courseTitle} />
-    case "pending":
-      return <PendingUnit />
+      return (
+        <CourseComplete line={unit.line} keyQuestions={unit.keyQuestions} />
+      )
   }
 }
 

@@ -49,6 +49,8 @@ export type PlayerEvent =
   | { kind: "note-stick"; text: string }
   | { kind: "answers-skip" }
   | { kind: "skip-lesson" }
+  /** The client's budget check failed before a checkpoint exercise (§7.7). */
+  | { kind: "budget-end" }
   | { kind: "continue" }
 
 /** Where the client was when it sent an event (§8.4). */
@@ -155,6 +157,40 @@ export function recallQueueAfter(
   marked: MarkedAnswer
 ): string[] | null {
   return isWrongSure(marked) ? requeueWrongSure(queue, index, recallKey) : null
+}
+
+/** A checkpoint exercise's retry key in `checkpoint_queue`: the exercise id. */
+const checkpointKey = (id: string) => id
+
+/** Whether the checkpoint exercise at `index` is a wrong *Sure*'s retry. */
+export const isCheckpointRetry = (queue: readonly string[], index: number) =>
+  isRetryAt(queue, index, checkpointKey)
+
+/**
+ * `checkpoint_queue` after an answer: grown by the retry after a wrong *Sure*
+ * (§7.2), or null when it is unchanged. The label's total does not grow.
+ */
+export function checkpointQueueAfter(
+  queue: readonly string[],
+  index: number,
+  marked: MarkedAnswer
+): string[] | null {
+  return isWrongSure(marked)
+    ? requeueWrongSure(queue, index, checkpointKey)
+    : null
+}
+
+/**
+ * The module's exercises answered before the checkpoint item at `index`, for
+ * its label (§7.6): those answered before the queue was set (the queue is
+ * authored order minus them), plus the queue's distinct exercises before it.
+ */
+export function checkpointAnsweredBefore(
+  queue: readonly string[],
+  index: number,
+  total: number
+): number {
+  return total - new Set(queue).size + new Set(queue.slice(0, index)).size
 }
 
 /**

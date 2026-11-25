@@ -2,36 +2,19 @@
 
 import { useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { CircleCheckBigIcon, ConstructionIcon, TrophyIcon } from "lucide-react"
+import { CircleCheckBigIcon, TrophyIcon } from "lucide-react"
 
 import { startSession } from "@/app/actions/sessions"
 import { Button } from "@/components/ui/button"
+import type { CourseCompleteUnitView } from "@/lib/dal/player"
 
-import { EmptyIllustration } from "../empty-illustration"
 import { PendingSubmit } from "../pending-submit"
+import { Celebration } from "./celebration"
 import { usePlayer } from "./runtime"
 
-function Screen({
-  icon,
-  heading,
-  children,
-}: {
-  icon: typeof TrophyIcon
-  heading: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
-      <EmptyIllustration icon={icon} />
-      <h2 className="text-2xl font-semibold">{heading}</h2>
-      {children}
-    </div>
-  )
-}
-
 /**
- * Session complete (WF-E8), plain for now: the summary line, **Keep going**
- * when a new session would hold work, and **Back to Today**.
+ * Session complete (WF-E8): a celebration with the summary line (§7.7),
+ * **Keep going** when a new session would hold work, and **Back to Today**.
  */
 export function SessionComplete({
   line,
@@ -42,8 +25,11 @@ export function SessionComplete({
 }) {
   const router = useRouter()
   return (
-    <Screen icon={CircleCheckBigIcon} heading="Session complete">
-      <p className="max-w-md text-sm">{line}</p>
+    <Celebration
+      icon={CircleCheckBigIcon}
+      heading="Session complete"
+      line={line}
+    >
       <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
         {keepGoing ? (
           <form
@@ -68,46 +54,49 @@ export function SessionComplete({
           Back to Today
         </Button>
       </div>
-    </Screen>
+    </Celebration>
   )
 }
 
-/** Course complete (WF-G3), plain until T18: the title and **Continue**. */
-export function CourseComplete({ courseTitle }: { courseTitle: string }) {
+/**
+ * Course complete (WF-G3): the course's shape, then each key question with
+ * its number of notes; it ends on the learner's questions, not a score.
+ * **Continue** goes to the session summary.
+ */
+export function CourseComplete({
+  line,
+  keyQuestions,
+}: Pick<CourseCompleteUnitView, "line" | "keyQuestions">) {
   const player = usePlayer()
   const [pending, startTransition] = useTransition()
+  const session = { unit: "end", screen: "course-complete" } as const
   return (
-    <Screen icon={TrophyIcon} heading={`${courseTitle} complete`}>
+    <Celebration icon={TrophyIcon} heading="Course complete" line={line}>
+      <ul className="flex w-full max-w-md flex-col divide-y rounded-lg border text-left">
+        {keyQuestions.map((q) => (
+          <li key={q.id} className="flex items-start gap-3 p-3 text-sm">
+            <span className="font-medium text-muted-foreground">
+              {q.id.toUpperCase()}
+            </span>
+            <span className="flex-1">{q.text}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {q.notes}
+            </span>
+          </li>
+        ))}
+      </ul>
       <Button
         size="lg"
-        className="min-h-11"
-        disabled={pending}
+        className="min-h-11 w-full md:w-auto"
+        disabled={pending || player.busy}
         onClick={() =>
           startTransition(async () => {
-            await player.finish(
-              { kind: "continue" },
-              {
-                session: { unit: "end", screen: "course-complete" },
-                lesson: null,
-              }
-            )
+            await player.finish({ kind: "continue" }, { session, lesson: null })
           })
         }
       >
         Continue
       </Button>
-    </Screen>
-  )
-}
-
-/** A unit whose screens are not built yet (T16–T18). */
-export function PendingUnit() {
-  return (
-    <Screen icon={ConstructionIcon} heading="Not available yet">
-      <p className="max-w-md text-sm text-muted-foreground">
-        This part of a session isn&apos;t built yet. Your progress is saved: use
-        × to end the session.
-      </p>
-    </Screen>
+    </Celebration>
   )
 }
