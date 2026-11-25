@@ -206,6 +206,11 @@ The skill writes these in stage 5; `--publish` checks that they parse and cover 
 
 `npm run course:display-check <id>` (T21) renders every brief, exercise and recall prompt with the real screen components at 1280×800 and 390×844. It fails on horizontal page scroll, overflowing math, tables or figures, `.katex-error`, missing figures or console errors, and writes a screenshot of each failing element to `.pipeline/screens/<course-id>/`.
 
+- It checks drafts as well as published courses, reading content from `PLATO_CONTENT_DIR` (default `content/`). It needs a build (`npm run build`, once; content changes need no rebuild) and a Playwright Chromium (`npx playwright install chromium`).
+- Briefs show each guess with its first option picked. Exercises show a wrong answer where there is one, so the correct option and the explanation are open; a short answer shows its sample as what was written. Recall prompts show their answer.
+- Each failure is one line, `<viewport> <item>: <kind>: <detail>`, with its screenshot path. `kind` is `page-scroll`, `math`, `table`, `figure`, `overflow`, `katex-error`, `console` or `load`. `--json` prints `{ courseId, ok, items, failures: [{ viewport, kind, item, label, detail, screenshot }] }`.
+- Exit code 0 passes, 1 fails, 2 could not run (a usage error, or no build).
+
 ## 10. Worked example
 
 [`why-the-sky-is-blue`](course-pipeline-example/courses/why-the-sky-is-blue/) is a real one-lesson mini-course, written against this document and the validator in the schema trial. It passes the structure checks with no warnings, and [`lib/content/validate.test.ts`](../../lib/content/validate.test.ts) keeps it that way. It has no `_audit/` folder: its claims have not been independently verified, so it is an example of form, not a publishable course.
