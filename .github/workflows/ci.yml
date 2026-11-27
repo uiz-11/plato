@@ -19,29 +19,57 @@ jobs:
           # content:check compares the branch with its merge base on main.
           fetch-depth: 0
 
+      - name: Detect code changes
+        id: changes
+        # Changes only under docs/ or .claude/ skip the rest, and the job still passes.
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            range="HEAD^1 HEAD"   # the PR's merge commit against its base
+          elif [ -n "${{ github.event.before }}" ] && ! echo "${{ github.event.before }}" | grep -q '^0*$'; then
+            range="${{ github.event.before }} HEAD"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git diff --name-only $range > /tmp/changed.txt
+          cat /tmp/changed.txt
+          if grep -qvE '^(docs|\.claude)/' /tmp/changed.txt; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Only docs/ or .claude/ changed; skipping the rest."
+          fi
+
       - uses: actions/setup-node@v5
+        if: steps.changes.outputs.code == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
+        if: steps.changes.outputs.code == 'true'
 
       - name: Lint
+        if: steps.changes.outputs.code == 'true'
         run: npm run lint
 
       - name: Typecheck
+        if: steps.changes.outputs.code == 'true'
         run: npm run typecheck
 
       - name: Unit tests
+        if: steps.changes.outputs.code == 'true'
         run: npm test
 
       - name: Build
+        if: steps.changes.outputs.code == 'true'
         run: npm run build
 
       - name: Docker image
+        if: steps.changes.outputs.code == 'true'
         run: docker build -t plato:ci .
 
       - name: Docker smoke check
+        if: steps.changes.outputs.code == 'true'
         run: |
           # Without a passcode the server refuses to start (§8.5). Check the
           # message too, so an unrelated crash at start does not pass.
@@ -90,13 +118,16 @@ jobs:
           test "$status" = 404 || { echo "preview route answered $status"; exit 1; }
 
       - name: Restart and restore drill
+        if: steps.changes.outputs.code == 'true'
         # Data survives a restart and a new container, and a backup restores (§12.2).
         run: scripts/docker-drill.sh plato:ci
 
       - name: Install Playwright browsers
+        if: steps.changes.outputs.code == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Content check
+        if: steps.changes.outputs.code == 'true'
         # Manifests are append-only, published courses unchanged, and newly
         # published courses pass `course:validate --publish` and the display
         # check (§5.6, §11.4). The display check needs the build and the
@@ -105,10 +136,11 @@ jobs:
         run: npm run content:check -- ${{ github.event_name == 'push' && format('--base {0}', github.event.before) || '' }}
 
       - name: End-to-end tests
+        if: steps.changes.outputs.code == 'true'
         run: npm run e2e
 
       - uses: actions/upload-artifact@v5
-        if: failure()
+        if: failure() && steps.changes.outputs.code == 'true'
         with:
           name: playwright-report
           path: playwright-report/
