@@ -58,7 +58,7 @@ New and changed terms. Other terms are as in v1.
 | **Gate** | The checks that a stage's output must pass before the next stage starts (§10). |
 | **Build step** | One model request or one tool use within a stage. Not the same as v1's lesson steps. |
 | **Activity log** | A build's record of its build steps (F11). |
-| **Course request** | Changed. Status: *Requested*, *Building*, *Published* or *Not built*. A request is *Building* while its build is *Queued*, *Building* or *Paused*. It becomes *Published* when the build is *Done*, *Not built* when the build is *Not built*, and *Requested* again if the build is cancelled. Starting over makes a *Not built* request *Building* again; cancelling that returns it to *Not built*. |
+| **Course request** | Changed. Status: *Not started*, *Building*, *Published* or *Not built*. A request is *Building* while its build is *Queued*, *Building* or *Paused*. It becomes *Published* when the build is *Done*, *Not built* when the build is *Not built*, and *Not started* again if the build is cancelled. Starting over makes a *Not built* request *Building* again; cancelling that returns it to *Not built*. |
 | **Shell page** | Anywhere in Plato outside the player. |
 | **Player** | Where you do sessions, lessons, reviews and checkpoints. |
 | **Operator** | Whoever runs Plato's command-line tools: the person who self-hosts it, often the learner. |
@@ -111,9 +111,9 @@ Plato follows OpenAI's [UI/UX guidelines](https://developers.openai.com/siwc/ui-
 #### Starting a build
 
 - **When *Connected*:** sending a request (v1 F1) starts or queues its build.
-- **Otherwise:** the request is saved as *Requested*, as in v1, and you're told what to fix (F12 rule 1).
+- **Otherwise:** the request is saved as *Not started*, as in v1, and you're told what to fix (F12 rule 1).
 
-You can build any *Requested* request later, with the same rules.
+You can build any *Not started* request later, with the same rules.
 
 #### One at a time
 
@@ -138,7 +138,7 @@ Plato runs one build at a time, in the order started. A *Paused* build keeps its
 | ChatGPT was unavailable for longer than a brief outage, or Plato restarted during a build step that can't safely be repeated without your go-ahead | Continue | The build continues |
 
 - **Starting over** starts a new build of the request from the first stage. You're told first that it uses your plan again.
-- **Cancelling** discards the build. The request returns to *Requested*, or to *Not built* with its reason if the build was a start-over. You're told first that usage already spent isn't returned.
+- **Cancelling** discards the build. The request returns to *Not started*, or to *Not built* with its reason if the build was a start-over. You're told first that usage already spent isn't returned.
 - **Outages and restarts.** After a brief ChatGPT outage, or a restart of Plato during a build step that can safely be repeated, the build stays *Building* and continues on its own. The activity log records each retry. What counts as brief, and which steps can be repeated, is set in the technical design.
 
 #### Keeping you informed
@@ -178,7 +178,7 @@ v1 [§7 Content quality](../v1/product-specification.md#7-content-quality) and [
 | v1 | Change in v1.1 |
 |---|---|
 | [§1](../v1/product-specification.md#1-overview) "Plato calls no AI model while you use it. Every course is created offline", and [principle 2](../v1/product-specification.md#2-principles) | Replaced by the new principle 2 (§2). Courses can also be built in the app (F11). |
-| [§4](../v1/product-specification.md#4-terms) Course request | The *Building* status is added, and a *Not built* request can be built again after a failed gate (§4, F11). |
+| [§4](../v1/product-specification.md#4-terms) Course request | *Requested* is renamed *Not started*, the *Building* status is added, and a *Not built* request can be built again after a failed gate (§4, F11). |
 | [§5](../v1/product-specification.md#5-journey) Journey, "Creation (offline)" | Connect, then build in the background (§5). |
 | [F1](../v1/product-specification.md#f1-course-request) Course request | When *Connected*, a request starts a build. Saved requests can be built later, and failed builds started over (F11). |
 | [F2](../v1/product-specification.md#f2-course-creation) Course creation | Done by the course builder (§10), in the app or offline, with the same stages and quality requirements (v1 §7). |
@@ -195,7 +195,7 @@ v1 [§7 Content quality](../v1/product-specification.md#7-content-quality) and [
 | Who starts it | The learner (F11) | The operator, with one command per request. The export, publish and not-built commands stay ([v1 technical design §11.5](../v1/technical-design.md#115-what-the-operator-runs)). |
 | Whose AI usage | The app's connected ChatGPT plan | The operator's own ChatGPT connection, separate from the app's |
 | Progress | The build page (F11) | The same stages and activity log, in the terminal |
-| Publishing | At once, when the Publish gate passes | As in v1: a PR, merged when CI is green, then deployed. Until it is deployed, the request stays *Requested*. |
+| Publishing | At once, when the Publish gate passes | As in v1: a PR, merged when CI is green, then deployed. Until it is deployed, the request stays *Not started*. |
 
 A request is built in one place at a time. One that is *Building* in the app is left out of the operator's export, and one the operator has exported can't be built in the app until the operator publishes it or marks it not built.
 

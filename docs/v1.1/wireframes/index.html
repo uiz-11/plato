@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plato v1.1 Wireframes</title>
+<style>
+  /* ---------- tokens ---------- */
+  :root {
+    --ink: #222; --mid: #6b6b6b; --faint: #bbb; --line: #ddd; --fill: #ececec;
+    --paper: #fff; --bg: #e9e9e6; --note: #fff6c2; --note-ink: #5a4d00;
+    --bw: 1.5px; --bw-strong: 2.5px;          /* border widths */
+    --r-s: 4px; --r-m: 8px; --r-l: 12px;      /* radii */
+    --hatch: repeating-linear-gradient(45deg, var(--fill) 0 6px, var(--paper) 6px 12px);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  code { font-size: 12px; }
+
+  /* ---------- page ---------- */
+  header.page, nav.toc, section.flow { max-width: 1640px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  header.page { padding-top: 32px; }
+  header.page h1 { margin: 0 0 4px; font-size: 26px; }
+  header.page p { margin: 4px 0; color: #555; max-width: 760px; }
+  nav.toc { padding-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav.toc a { color: var(--ink); text-decoration: none; border: 1px solid #aaa; border-radius: 999px;
+              padding: 3px 10px; font-size: 12px; background: #fafaf7; }
+  section.flow { padding-top: 28px; padding-bottom: 8px; }
+  section.flow:last-of-type { padding-bottom: 48px; }
+  section.flow > h2 { font-size: 18px; margin: 0 0 2px; padding-top: 12px; border-top: 2px solid #999; }
+  section.flow > p.sub { margin: 0 0 16px; color: #555; max-width: 760px; }
+  .row { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+  figure { margin: 0; }
+  figure.d { width: 780px; max-width: 100%; }
+  figure.m { width: 300px; max-width: 100%; }
+  figcaption { font-weight: 600; margin: 0 0 6px; font-size: 13px; }
+  figcaption span { color: var(--mid); font-weight: 400; }
+
+  /* ---------- desktop frame ---------- */
+  .win { width: 100%; height: 500px; background: var(--paper); border: 2px solid var(--ink);
+         border-radius: var(--r-l); overflow: hidden; display: flex; flex-direction: column; }
+  .win.fit { height: auto; min-height: 500px; }
+  .chrome { flex: none; height: 26px; border-bottom: var(--bw) solid var(--line); display: flex;
+            align-items: center; gap: 5px; padding: 0 10px; }
+  .chrome i { width: 9px; height: 9px; border-radius: 50%; border: var(--bw) solid var(--faint); }
+  .chrome .url { margin-left: 10px; flex: 1; max-width: 300px; height: 14px; border-radius: 7px; background: var(--fill);
+                 font-size: 9px; color: var(--mid); padding: 0 8px; line-height: 14px; }
+  .app { flex: 1; display: flex; min-height: 0; }
+  .side { width: 150px; flex: none; border-right: var(--bw) solid var(--line); padding: 12px 10px;
+          display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .side .logo { font-weight: 800; font-size: 15px; margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
+  .side .logo::before { content: ""; width: 16px; height: 16px; border: 2px solid var(--ink); border-radius: 5px; }
+  .side .nav { padding: 6px 8px; border-radius: var(--r-m); color: var(--mid); }
+  .side .nav.on { background: var(--fill); color: var(--ink); font-weight: 700; border: var(--bw) solid var(--ink); }
+  .side .btn { margin-top: 6px; }
+  .side .btn.on { background: var(--fill); }
+  .main { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .main.center { align-items: center; justify-content: center; text-align: center; }
+  .main.center > * { width: 100%; max-width: 540px; }
+  .main.player { align-items: center; padding-top: 36px; }   /* question screens: top-aligned column */
+  .main.player > * { width: 100%; max-width: 560px; }
+  .main.read { padding-top: 36px; }
+  .prose p { margin: 0 0 12px; font-size: 14px; line-height: 1.65; color: var(--ink); text-align: left; }
+  .prose p:last-child { margin-bottom: 0; }
+  .main.read > * { width: 100%; max-width: 600px; align-self: center; }
+  .rail { width: 220px; flex: none; border-left: var(--bw) solid var(--line); padding: 14px 12px;
+          display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .ctr { text-align: center; }
+  .s b { color: var(--ink); }
+
+  /* ---------- session player: × | title + small | tag? | time | ⋯ ---------- */
+  .ptop { flex: none; display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+          border-bottom: var(--bw) solid var(--line); font-size: 12px; }
+  .ptop .ttl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+  .ptop .ttl small { display: block; font-weight: 400; font-size: 10px; color: var(--mid); }
+  .ptop .time { font-size: 11px; color: var(--mid); white-space: nowrap; }
+  .lsteps, .ticks { flex: none; display: grid; gap: 6px; padding: 10px 14px 9px; border-bottom: var(--bw) solid var(--line); }
+  .lsteps { grid-template-columns: repeat(5, 1fr); }
+  .ticks { grid-auto-flow: column; gap: 3px; }
+  .lsteps div { display: flex; flex-direction: column; gap: 4px; }
+  .lsteps i, .ticks i { height: 4px; border-radius: 2px; background: var(--line); }
+  .lsteps span { font-size: 10px; color: var(--mid); }
+  .lsteps .done i, .ticks i.done { background: var(--mid); }
+  .lsteps .done span::before { content: "✓ "; }
+  .lsteps .now i, .ticks i.now { background: var(--ink); }
+  .lsteps .now span { color: var(--ink); font-weight: 700; }
+  .lsteps .optl i { background: repeating-linear-gradient(90deg, var(--faint) 0 5px, transparent 5px 8px); }
+  .lsteps .optl.now i { background: var(--ink); }
+  .pfoot { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-top: var(--bw) solid var(--line); }
+  .acts { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+  .acts .grow { flex: 1; font-size: 11px; color: var(--mid); }
+  .prompt { font-size: 11px; color: var(--mid); text-align: center; }
+  .conf { display: flex; gap: 8px; }
+  .conf > * { flex: 1; }
+
+  /* ---------- phone frame ---------- */
+  .phone { position: relative; width: 100%; height: 600px; overflow: hidden; background: var(--paper);
+           border: 2px solid var(--ink); border-radius: 26px; display: flex; flex-direction: column; }
+  .phone.fit { height: auto; min-height: 600px; }
+  .sb { height: 20px; flex: none; display: flex; justify-content: space-between; padding: 4px 18px 0;
+        font-size: 9px; color: var(--mid); }
+  .hdr { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px 8px;
+         border-bottom: var(--bw) solid var(--line); font-weight: 600; font-size: 13px; }
+  .hdr .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hdr .grow small { display: block; font-weight: 400; font-size: 10px; color: var(--mid); }
+  .phone .ic { width: 32px; height: 32px; }
+  .phone .opt { min-height: 44px; }
+  .phone .btn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+  .phone .h { font-size: 17px; }
+  .pbody { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .foot { flex: none; padding: 10px 12px 14px; border-top: var(--bw) solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .tabbar { flex: none; display: flex; border-top: var(--bw) solid var(--ink); }
+  .tabbar div { flex: 1; text-align: center; padding: 8px 0 12px; font-size: 10px; color: var(--mid); }
+  .tabbar div::before { content: ""; display: block; width: 16px; height: 16px; margin: 0 auto 3px;
+                        border: var(--bw) solid var(--faint); border-radius: var(--r-s); }
+  .tabbar div.on { color: var(--ink); font-weight: 700; }
+  .tabbar div.on::before { border-color: var(--ink); background: var(--fill); }
+  .msteps { flex: none; padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .msteps .bars { display: flex; gap: 3px; }
+  .msteps .bars i { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+  .msteps .bars i.done { background: var(--mid); }
+  .msteps .bars i.now { background: var(--ink); }
+  .msteps .bars i.optl { background: repeating-linear-gradient(90deg, var(--faint) 0 5px, transparent 5px 8px); }
+  .msteps span { font-size: 10px; color: var(--mid); }
+
+  /* ---------- type ---------- */
+  .xl { font-weight: 800; font-size: 28px; line-height: 1.15; }
+  .h { font-weight: 800; font-size: 22px; line-height: 1.25; }   /* page title / the question */
+  .t { font-weight: 700; font-size: 13px; }                     /* item title */
+  .b { font-size: 13px; color: var(--ink); line-height: 1.5; }  /* content */
+  .s { font-size: 11px; color: var(--mid); }                    /* metadata */
+  .k { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mid); font-weight: 700; }
+  .eyebrow { font-size: 11px; color: var(--mid); }
+  .num { font-weight: 800; font-size: 26px; line-height: 1; color: var(--mid); }
+
+  /* ---------- primitives ---------- */
+  .ic { width: 22px; height: 22px; border: var(--bw) solid var(--ink); border-radius: 6px; display: grid;
+        place-items: center; font-size: 11px; flex: none; color: var(--ink); }
+  .btn { border: 2px solid var(--ink); border-radius: var(--r-m); padding: 8px 14px; text-align: center;
+         font-weight: 700; font-size: 13px; background: var(--ink); color: #fff; white-space: nowrap; }
+  .btn.ghost { background: var(--paper); color: var(--ink); }
+  .btn.sm { padding: 4px 9px; font-size: 11px; border-width: var(--bw); }
+  .btn.off { opacity: .35; }
+  .btns { display: flex; gap: 8px; justify-content: center; }
+  .btns.fill > * { flex: 1; }
+  .box { border: var(--bw) solid var(--ink); border-radius: var(--r-l); padding: 12px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+  .box.soft { border-color: var(--line); background: var(--fill); }        /* your own text */
+  .box.lead { gap: 10px; padding: 16px; }
+  .box.ok { border-left: 5px solid var(--ink); }                             /* feedback / callout */
+  .input { border: var(--bw) solid var(--mid); border-radius: var(--r-m); padding: 8px 10px; color: var(--mid);
+           font-size: 13px; min-height: 36px; text-align: left; }
+  .input.area { min-height: 90px; }
+  .input.area.lg { min-height: 160px; }
+  .input.filled { color: var(--ink); }
+  .edges { font-size: 12px; color: var(--mid); line-height: 1.5; }
+  /* confetti: the one intentional splash of colour, on completion screens */
+  .celebrate { position: relative; }
+  .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .main.center > .confetti { max-width: none; }
+  .celebrate > :not(.confetti) { position: relative; }
+  .confetti i { position: absolute; width: 7px; height: 12px; border-radius: 2px; }
+  .confetti i:nth-child(3n) { width: 8px; height: 8px; border-radius: 50%; }
+  .confetti i:nth-child(4n) { width: 12px; height: 4px; }
+  /* status tags: spec statuses only */
+  .tag { display: inline-block; border: 1px solid var(--mid); border-radius: var(--r-s); padding: 0 5px;
+         font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: var(--mid);
+         vertical-align: middle; white-space: nowrap; font-weight: 600; }
+  .tag.dark { border-color: var(--ink); color: var(--ink); }                 /* ready, open */
+  .tag.solid { background: var(--ink); color: #fff; border-color: var(--ink); } /* completed, done, complete */
+  /* content labels: uncertain, general knowledge, contested, recommended, policy */
+  .label { font-size: 11px; font-style: italic; color: var(--mid); white-space: nowrap; }
+  .label::before { content: "["; } .label::after { content: "]"; }
+  .label.strong { font-style: normal; font-weight: 700; color: var(--ink); }
+  .link { text-decoration: underline; font-size: 12px; }
+  .link::after { content: " ↗"; }
+  .lk { display: inline-flex; gap: 6px; align-items: center; margin-top: 5px; border: var(--bw) solid var(--line);
+        border-radius: var(--r-m); padding: 3px 8px; font-size: 11px; }
+  .lk::after { content: "↗"; }
+  .spread { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .item { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; text-align: left; }
+  .item:last-child { border-bottom: 0; }
+  .item .grow { flex: 1; min-width: 0; }
+  .item .bar { margin-top: 4px; }
+  .item { min-height: 38px; }
+  .item .num { font-size: 16px; width: 20px; }
+  .s.yr { width: 40px; text-align: right; }
+  .list { border-top: 1px solid var(--line); }                               /* borderless group */
+  .dot { width: 13px; height: 13px; border-radius: 50%; border: var(--bw) solid var(--ink); flex: none; }
+  .dot.half { background: linear-gradient(90deg, var(--ink) 50%, transparent 50%); }
+  .dot.full { background: var(--ink); }
+  .dot.skip { border-style: dashed; border-color: var(--mid); }
+  .dot.lock { border-radius: 3px; border-color: var(--faint); }
+  .chev::after { content: "›"; color: var(--mid); font-size: 16px; }
+  .bar { height: 7px; border-radius: var(--r-s); background: var(--line); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--ink); }
+  .ln { height: 7px; border-radius: var(--r-s); background: var(--line); }
+  .w40{width:40%}.w60{width:60%}.w70{width:70%}.w80{width:80%}.w90{width:90%}
+  .lines { display: flex; flex-direction: column; gap: 5px; }
+  .cite { display: inline-block; font-size: 8px; border: 1px solid var(--mid); border-radius: 3px;
+          padding: 0 3px; color: var(--mid); margin-left: 2px; vertical-align: middle; }
+  .tick { display: inline-grid; place-items: center; width: 14px; height: 14px; border: var(--bw) solid var(--ink);
+          border-radius: 3px; font-size: 10px; flex: none; }
+  .tick.on { background: var(--ink); color: #fff; }
+  .tabs { display: flex; gap: 16px; border-bottom: var(--bw) solid var(--line); font-size: 12px; }
+  .tabs span { padding: 4px 0 6px; color: var(--mid); }
+  .tabs span.on { color: var(--ink); font-weight: 700; border-bottom: var(--bw-strong) solid var(--ink); margin-bottom: -1.5px; }
+  .opt { display: flex; gap: 8px; align-items: center; border: var(--bw) solid var(--mid); border-radius: var(--r-m);
+         padding: 8px 10px; font-size: 13px; text-align: left; }
+  .opt.sm { padding: 4px 8px; }
+  .opt::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: var(--bw) solid var(--mid); flex: none; }
+  .opt.sel { border: var(--bw-strong) solid var(--ink); background: var(--fill); }
+  .opt.sel::before { background: var(--ink); border-color: var(--ink); }
+  .opt.right { border: var(--bw-strong) solid var(--ink); }
+  .opt.right::after { content: "✓ correct"; margin-left: auto; font-size: 10px; font-weight: 700; }
+  .opt.wrong::after { content: "✗ your pick"; margin-left: auto; font-size: 10px; color: var(--mid); }
+  .toast { border: var(--bw) solid var(--ink); border-radius: var(--r-m); padding: 6px 6px 6px 12px; background: var(--fill);
+           display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; }
+  .hi { outline: 2px dashed var(--ink); outline-offset: 3px; border-radius: 6px; padding: 0 12px; }
+
+  /* ---------- richer pieces ---------- */
+  .illo { width: 96px; height: 96px; border-radius: 50%; border: 2px dashed var(--faint); background: var(--hatch);
+          display: grid; place-items: center; font-size: 9px; color: var(--mid); margin: 0 auto; }
+  .illo.sm { width: 64px; height: 64px; }
+  .main.center > .illo, .main.player > .illo { width: 96px; flex: none; }
+  .card .tag, .thumb .tag { align-self: flex-start; }
+  .phone .diagram { height: 80px; }
+  .diagram { height: 110px; border: var(--bw) dashed var(--faint); border-radius: var(--r-m); background: var(--hatch);
+             display: grid; place-items: center; font-size: 11px; color: var(--mid); }
+  .cover { border-radius: var(--r-m); background: var(--hatch); border: var(--bw) solid var(--line);
+           display: grid; place-items: center; font-weight: 800; color: var(--mid); flex: none; }
+  /* days shown up: one number, no pattern to read */
+  .showed { display: flex; align-items: center; gap: 8px; }
+  .showed .big { font-size: 26px; font-weight: 800; line-height: 1; }
+  .showed .s { line-height: 1.3; }
+  .split { display: flex; border-radius: var(--r-l); overflow: hidden; background: var(--ink); color: #fff; }
+  .split .go { flex: 1; padding: 14px 16px; font-size: 16px; font-weight: 700; }
+  .split .len { flex: none; display: flex; align-items: center; gap: 4px; padding: 0 14px; font-size: 13px;
+                font-weight: 600; border-left: var(--bw) solid #666; }
+  .phone .split .go, .phone .split .len { min-height: 48px; display: flex; align-items: center; }
+  .hero { display: flex; gap: 16px; align-items: center; }
+  .hero .cover { width: 44px; height: 44px; font-size: 11px; }
+  .hero .grow { flex: 1; min-width: 0; }
+  /* sticky notes: your own words, pinned under each key question */
+  .board { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 2px 6px; }
+  .sticky { position: relative; width: 140px; min-height: 96px; padding: 10px 10px 22px; background: #f3f1e6;
+            border: 1px solid #d8d4bf; border-radius: 2px; box-shadow: 0 2px 0 rgba(0,0,0,.08);
+            font: 15px/1.3 Georgia, "Times New Roman", serif; color: var(--ink); text-align: left; transform: rotate(-1.5deg); }
+  .sticky:nth-child(even) { transform: rotate(1.2deg); }
+  .sticky::after { content: ""; position: absolute; right: -1px; bottom: -1px; border-style: solid; border-width: 12px 12px 0 0;
+                   border-color: transparent var(--paper) transparent transparent; }   /* folded corner */
+  .sticky small { position: absolute; left: 10px; bottom: 6px; font: 10px ui-sans-serif, system-ui, sans-serif; color: var(--mid); }
+  .sticky.add { background: transparent; border: var(--bw) dashed var(--faint); box-shadow: none; transform: none;
+                color: var(--mid); font: 12px ui-sans-serif, system-ui, sans-serif; display: grid; place-items: center; text-align: center; }
+  .sticky.add::after, .sticky.writing::after { display: none; }
+  .sticky.writing { background: var(--paper); border: var(--bw-strong) solid var(--ink); transform: none; color: var(--mid); }
+  .sticky.writing .cur { display: inline-block; width: 1.5px; height: 16px; background: var(--ink); vertical-align: -3px; margin-right: 2px; }
+  .qhead { display: flex; align-items: baseline; gap: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { border: var(--bw) solid var(--ink); border-radius: var(--r-l); overflow: hidden; display: flex; flex-direction: column; }
+  .card .cover { height: 54px; border: 0; border-radius: 0; border-bottom: var(--bw) solid var(--line); }
+  .card .in { padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .card.req { border-style: dashed; border-color: var(--mid); }
+  /* mastery: concept · four dots · word (no bars, no card) */
+  .mastery { display: grid; grid-template-columns: 1fr 52px 110px; gap: 10px; align-items: center; padding: 7px 0;
+             border-bottom: 1px solid var(--line); font-size: 12px; text-align: left; }
+  .mastery:last-child { border-bottom: 0; }
+  .lvl { display: flex; gap: 3px; }
+  .lvl i { width: 8px; height: 8px; border-radius: 50%; border: var(--bw) solid var(--ink); }
+  .lvl i.on { background: var(--ink); }
+  .lvl.none i { border-color: var(--faint); }
+  .concepts { margin: 0 0 6px 6px; padding: 0 0 0 16px; border-left: 2px solid var(--line); }
+  .concepts .mastery { padding: 5px 0; font-size: 11px; border-bottom: 0; }
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .thumb { background: var(--paper); border: 2px solid var(--ink); border-radius: var(--r-l); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .thumb .when { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--mid); font-weight: 700;
+                 border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .thumb .split .go { padding: 10px 12px; font-size: 13px; }
+  .thumb .split .len { font-size: 11px; padding: 0 10px; }
+  .beyond { border-top: var(--bw) solid var(--line); padding-top: 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+  .gap { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; text-align: left; }
+  .gi { width: 18px; flex: none; text-align: center; color: var(--mid); font-size: 14px; line-height: 18px; }
+
+  /* callouts */
+  .n { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+       background: var(--note-ink); color: var(--note); font-size: 9px; font-weight: 800;
+       vertical-align: middle; flex: none; font-style: normal; text-transform: none; letter-spacing: 0; }
+  ol.notes { list-style: none; margin: 10px 0 0; padding: 10px 12px; background: var(--note); color: var(--note-ink);
+             border-radius: var(--r-s); font-size: 12px; display: flex; flex-direction: column; gap: 5px; }
+  ol.notes li { display: flex; gap: 6px; align-items: flex-start; }
+  ol.notes li .n { margin-top: 1px; }
+  ol.notes .ref { opacity: .7; font-size: 11px; }
+  ul.a11y { background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--r-m); padding: 12px 12px 12px 30px;
+            margin: 0; max-width: 820px; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+
+  .map, .sflow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .map { margin-top: 8px; }
+  .sflow { margin: 0 0 18px; max-width: 900px; }
+  .map .st, .sflow .st { border: 2px solid var(--ink); border-radius: var(--r-m); padding: 6px 10px; background: var(--paper);
+             font-weight: 700; font-size: 12px; }
+  .map .st.off { border-style: dashed; border-color: var(--mid); color: var(--mid); }
+  .map .st small, .sflow .st small { display: block; font-weight: 400; color: var(--mid); font-size: 10px; }
+  .map .ar, .sflow .ar { color: var(--mid); }
+
+  @media (max-width: 700px) {
+    .side, .rail { display: none; }
+    .cols, .cards, .thumbs { grid-template-columns: 1fr; }
+    .lsteps div:not(.now) span { display: none; }   /* keep the current step's label */
+  }
+
+  /* ================= v1.1 additions ================= */
+  .row { flex-direction: column; flex-wrap: nowrap; }      /* one frame per row */
+  figure.d { width: 960px; }
+  .g3, .g2 { display: grid; gap: 12px; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .side .set { margin-top: auto; display: flex; align-items: center; gap: 6px; }
+  .alert { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); margin-left: auto; }
+  /* ChatGPT logo placeholder: OpenAI's approved asset in hi-fi */
+  .gl { width: 14px; height: 14px; border-radius: 50%; border: var(--bw) solid currentColor; flex: none; display: inline-block;
+        background: radial-gradient(circle, currentColor 0 2px, transparent 2.5px); vertical-align: middle; }
+  .btn.gpt { display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
+  .usage { display: inline-flex; gap: 6px; align-items: center; font-size: 11px; color: var(--mid); }
+  .usage .link { font-size: 11px; color: var(--ink); }
+  /* shell build indicator: building or paused, nothing more */
+  .bld { border: var(--bw) solid var(--ink); border-radius: var(--r-m); padding: 6px 8px; display: flex; gap: 7px; align-items: center; margin-top: 10px; font-size: 11px; font-weight: 700; }
+  .bld small { display: block; font-weight: 400; color: var(--mid); font-size: 10px; }
+  .bld.need { border-width: var(--bw-strong); background: var(--fill); }
+  .bld.need small { color: var(--ink); font-weight: 700; }
+  .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--ink); flex: none; }
+  .tag.need { background: var(--fill); border: var(--bw) solid var(--ink); color: var(--ink); font-weight: 800; }
+  /* six stages, build page only */
+  .stg { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .stg div { display: flex; flex-direction: column; gap: 3px; }
+  .stg i { height: 6px; border-radius: 3px; background: var(--line); }
+  .stg span { font-size: 11px; font-weight: 600; color: var(--mid); }
+  .stg small { font-size: 10px; color: var(--mid); }
+  .stg .pass i { background: var(--mid); }
+  .stg .run i { background: var(--ink); }
+  .stg .run span { color: var(--ink); }
+  .stg .run small, .stg .fail small { color: var(--ink); font-weight: 700; }
+  .stg .fail i { background: repeating-linear-gradient(45deg, var(--ink) 0 3px, transparent 3px 6px); }
+  .act { display: flex; gap: 10px; align-items: center; border-left: 5px solid var(--ink); padding: 6px 10px; background: var(--fill); border-radius: var(--r-s); }
+  .act .grow { flex: 1; min-width: 0; }
+  .log { font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; border: var(--bw) solid var(--line); border-radius: var(--r-m); padding: 6px 10px; }
+  .log div { display: flex; gap: 10px; }
+  .log b { font-weight: 400; color: var(--mid); width: 38px; flex: none; }
+  .log .x { font-weight: 700; }
+  details.r { border-bottom: 1px solid var(--line); padding: 6px 0; font-size: 12px; }
+  .r summary { display: flex; gap: 8px; list-style: none; }
+  .r summary::before { content: "▸"; color: var(--mid); }
+  .r[open] summary::before { content: "▾"; }
+  .banner { border: var(--bw-strong) solid var(--ink); border-radius: var(--r-m); padding: 8px 10px; display: flex; gap: 10px; align-items: center; font-size: 12px; }
+  .banner .grow { flex: 1; min-width: 0; }
+  .shares { margin: 0; padding-left: 16px; font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+  .term { background: var(--ink); color: #e6e6e6; border-radius: var(--r-l); padding: 12px 14px; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .term div { white-space: pre; }
+  .term .d { color: #999; }
+  .term .y { color: #fff; font-weight: 700; }
+  /* settings: status light + every action, unavailable ones greyed */
+  .light { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; border: 1px solid rgba(0,0,0,.25); }
+  .light.ok { background: #2e9e5b; } .light.warn { background: #e0a21b; } .light.bad { background: #d0453a; } .light.none { background: var(--paper); border-color: var(--mid); }
+  .stat { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 400; }
+  .stat *, .sd, .sd * { font-weight: 400 !important; }
+  /* settings: one row per connection: logo, name, status light, ⋯ menu */
+  .main.set { padding: 24px 32px; gap: 14px; }
+  .main.set > * { max-width: 640px; width: 100%; }
+  .crow { position: relative; display: flex; gap: 12px; align-items: center; padding: 14px; border: var(--bw) solid var(--ink); border-radius: var(--r-l); background: var(--paper); }
+  .crow .grow { flex: 1; min-width: 0; }
+  .logo-sq { width: 36px; height: 36px; border-radius: 9px; border: var(--bw) solid var(--ink); display: grid; place-items: center; flex: none; }
+  .menu { position: absolute; right: 14px; top: 46px; width: 260px; background: var(--paper); border: var(--bw) solid var(--ink); border-radius: var(--r-m);
+          box-shadow: 0 6px 18px rgba(0,0,0,.14); padding: 4px; font-size: 12px; z-index: 2; text-align: left; }
+  .menu.static { position: static; width: auto; box-shadow: none; }
+  .menu div { padding: 6px 8px; border-radius: var(--r-s); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .menu div small { flex-basis: 100%; color: var(--mid); font-size: 10px; }
+  .menu .off { color: var(--faint); }
+  .menu .off small { color: var(--faint); }
+  .menu .fix { font-weight: 700; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 3px 0; }
+  .menu .hov { background: var(--fill); }
+  .set .light-dot { margin-left: auto; }
+  .scrim { position: absolute; inset: 26px 0 0 0; background: rgba(0,0,0,.18); }
+  .dlg { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 400px; background: var(--paper);
+         border: 2px solid var(--ink); border-radius: var(--r-l); padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  .slot { width: 80px; flex: none; display: flex; justify-content: flex-end; }
+  .slot .btn { width: 100%; }
+  .win { position: relative; }
+  .float { position: absolute; right: 16px; bottom: 16px; width: 320px; box-shadow: 0 4px 14px rgba(0,0,0,.15); background: var(--paper); }
+  /* ================= polish pass: quiet chrome, one status language ================= */
+  :root { --edge: #e4e4e0; }
+  .win, .phone { border: 1px solid #c9c9c4; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .thumb { border: 1px solid var(--edge); }
+  .box, .card, .crow, .input, .toast, .banner, .dlg, .log { border: 1px solid var(--edge); }
+  .box.lead { background: #fafaf8; }
+  .card.req { border: 1px dashed #d6d6d2; }
+  .btn.ghost { border: 1px solid var(--edge); }
+  .btn.sm { border-width: 1px; }
+  .ic { border: 1px solid var(--edge); color: var(--mid); }
+  .side .nav.on { border: 0; background: var(--fill); }
+  .side .btn.ghost { border: 1px solid var(--edge); }
+  .toast { background: var(--paper); }
+  .dlg { border: 1px solid #d6d6d2; }
+  /* three sizes: title, body 13px, meta 12px; sentence-case labels */
+  .k { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; color: var(--mid); }
+  .s { font-size: 12px; }
+  .thumb .when { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 600; border-bottom: 0; padding-bottom: 0; }
+  /* status: coloured dot + word, everywhere */
+  .sd { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink); white-space: nowrap; }
+  .sd::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; box-sizing: border-box; }
+  .sd.run::before { width: 10px; height: 10px; background: none; border: 2px solid var(--line); border-top-color: var(--ink); }
+  .sd.wait::before { background: var(--paper); border: 1.5px solid var(--mid); }
+  .sd.pause::before { background: #e0a21b; }
+  .sd.ok::before { background: #2e9e5b; }
+  .sd.bad::before { background: #d0453a; }
+  .sd.idle::before { background: #c4c4c0; }
+  .sd.dim { color: var(--mid); }
+  /* sidebar build line: a quiet nav entry above Settings */
+  .side .bldnav { margin-top: auto; }
+  .side .bldnav + .set { margin-top: 0; }
+  /* status line and Settings share one 16px icon column and the nav text style */
+  .side .bldnav, .side .nav.set { display: flex; align-items: center; gap: 8px; font-size: inherit; color: var(--mid); }
+  .side .bldnav .sd { font-size: inherit; color: var(--mid); gap: 8px; }
+  .side .bldnav .sd::before { margin: 0 4px; }
+  .side .nav.set .gi { width: 16px; text-align: center; font-size: 15px; line-height: 1; color: var(--mid); }
+  .side .nav.set { margin-top: auto; } .side .bldnav + .nav.set { margin-top: 0; }
+  .side .nav.set.on { color: var(--ink); } .side .nav.set.on .gi { color: var(--ink); }
+  /* tinted alerts */
+  .alrt { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-m); border: 1px solid; font-size: 12px; }
+  .alrt .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .alrt .ai { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; flex: none; }
+  .alrt.warn { background: #fdf7e8; border-color: #f0dfb0; } .alrt.warn .ai { background: #e0a21b; }
+  .alrt.bad { background: #fdf1ef; border-color: #f2cdc7; } .alrt.bad .ai { background: #d0453a; }
+  .alrt.ok { background: #eef8f1; border-color: #c9e8d3; } .alrt.ok .ai { background: #2e9e5b; }
+  .alrt.info { background: #f6f6f4; border-color: var(--edge); } .alrt.info .ai { background: var(--mid); }
+  .alrt .acts { justify-content: flex-start; margin-top: 4px; }
+  /* build page: stages down the left, activity on the right */
+  .bp { display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: start; }
+  .stp { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .stp li { display: flex; flex-direction: column; gap: 1px; padding: 7px 0 7px 18px; position: relative; font-size: 13px; }
+  .stp li::before { content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 1px; background: #d6d6d2; }
+  .stp li:first-child::before { top: 16px; } .stp li:last-child::before { bottom: calc(100% - 16px); }
+  .stp li .sd { position: absolute; left: 0; top: 12px; font-size: 0; gap: 0; }
+  .stp li small { font-size: 12px; color: var(--mid); }
+  .stp li.on { font-weight: 600; }
+  .stp li.on small { color: var(--ink); font-weight: 400; }
+  .tl { display: flex; flex-direction: column; }
+  .tl div { display: flex; gap: 12px; font-size: 12px; padding: 5px 0; border-bottom: 1px solid #f0f0ee; }
+  .tl b { font-weight: 400; color: var(--mid); width: 38px; flex: none; }
+  .tl .x { font-weight: 600; }
+  .now2 { display: flex; gap: 10px; align-items: center; }
+  .now2 .t { font-size: 14px; }
+  .item { position: relative; }
+  .slog { font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; background: #fafaf8; border: 1px solid var(--edge); border-radius: var(--r-m); padding: 10px 14px; }
+  .slog.sm { font-size: 11px; padding: 8px 10px; }
+  .slog .sh { display: flex; gap: 10px; }
+  .slog .mk { width: 14px; flex: none; text-align: center; }
+  .slog .nm { width: 130px; flex: none; }
+  .slog.sm .nm { width: 100px; }
+  .slog .ex { color: var(--mid); }
+  .slog .ok { color: #1f7a45; } .slog .ok .ex { color: var(--mid); }
+  .slog .run, .slog .pause { color: #a06d00; font-weight: 700; }
+  .slog .wait { color: var(--mid); }
+  .slog .ln2 { display: flex; gap: 10px; padding-left: 24px; }
+  .slog .ln2 b { font-weight: 400; color: var(--mid); width: 38px; flex: none; }
+  .act2 { display: flex; gap: 10px; align-items: center; }
+  .log { background: #fafaf8; padding: 8px 12px; }
+  .lg.ok { color: #1f7a45; } .lg.bad { color: #b4372d; font-weight: 700; } .lg.warn { color: #a06d00; } .lg.dim { color: var(--mid); }
+
+  /* ================= shadcn neutral theme (app/globals.css) ================= */
+  :root {
+    --ink: #171717;            /* --primary */
+    --mid: #737373;            /* --muted-foreground */
+    --faint: #a3a3a3;
+    --line: #e5e5e5;           /* --border */
+    --edge: #e5e5e5;
+    --fill: #f5f5f5;           /* --muted / --accent */
+    --destructive: #e7000b;    /* --destructive */
+    --ok: #10b981; --warn: #f59e0b;   /* status dots only: Tailwind emerald-500 / amber-500 */
+  }
+  .box.lead, .log, .slog { background: #fafafa; }
+  .menu .hov { background: var(--fill); }
+  /* status dots */
+  .sd.ok::before, .light.ok { background: var(--ok); }
+  .sd.pause::before, .light.warn { background: var(--warn); }
+  .sd.bad::before, .light.bad { background: var(--destructive); }
+  .light { border: 0; } .light.none { border: 1.5px solid var(--mid); background: transparent; }
+  .sd.idle::before { background: #d4d4d4; }
+  /* log text: muted-foreground, foreground, destructive; status tints only for pass/fix */
+  .lg.ok, .slog .ok { color: #047857; }
+  .lg.warn, .slog .run, .slog .pause { color: #b45309; }
+  .lg.bad { color: var(--destructive); }
+  /* build log = E1 terminal: dark, monochrome, current stage bright, errors red */
+  .slog, .box.lead .slog { background: var(--ink); border-color: var(--ink); border-radius: var(--r-l); color: #e6e6e6; }
+  .slog .ok, .slog .sh.ok { color: #e6e6e6; } .slog .ex, .slog .ok .ex, .slog .ln2 b, .slog .wait { color: #999; }
+  .slog .run, .slog .pause { color: #fff; font-weight: 700; }
+  .slog .lg.ok, .slog .lg.warn, .slog .lg.dim { color: #e6e6e6; font-weight: 400; }
+  .slog .lg.bad { color: #f87171; font-weight: 400; }
+  /* shadcn Alert: default (card) and destructive only */
+  .alrt, .alrt.warn, .alrt.ok, .alrt.info { background: #fff; border: 1px solid var(--line); }
+  .alrt .ai { background: transparent !important; color: var(--ink); border: 1.5px solid currentColor; width: 18px; height: 18px; font-size: 10px; }
+  .alrt.bad { background: #fff; border-color: var(--line); }
+  .alrt.bad .ai, .alrt.bad .t { color: var(--destructive); }
+  .alrt.bad .s { color: rgba(231,0,11,.85); }
+  /* destructive = red icon (in a tinted square) + soft red button; text stays neutral (shadcn AlertDialog media + destructive button) */
+  .alrt.bad .t { color: var(--ink); } .alrt.bad .s { color: var(--mid); }
+  .alrt .ai { width: 26px !important; height: 26px !important; border-radius: 6px !important; border: 0 !important; background: var(--fill) !important; color: var(--ink) !important; display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+  .alrt.bad .ai, .dmedia { width: 26px; height: 26px; border-radius: 6px; background: color-mix(in oklab, var(--destructive) 10%, #fff) !important; color: var(--destructive) !important; display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+  .dmedia { width: 34px; height: 34px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+  .btn.destr, .alrt .acts .btn.destr { background: color-mix(in oklab, var(--destructive) 10%, #fff); color: var(--destructive); border-color: transparent; }
+  /* shadcn Alert, custom colours: tinted bg + border, 900 title, 800 description, AlertAction top-right */
+  .alrt { padding: 12px 14px; }
+  .alrt .ai { border: 0; width: 18px; font-size: 13px; }
+  .alrt .acts { margin: 0; display: flex; gap: 6px; flex: none; }
+  .alrt .acts .btn { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  .alrt.bad, .alrt.warn, .alrt.ok, .alrt.info, .alrt.plain { background: #fff; border-color: var(--line); }
+  .alrt.warn .ai, .alrt.warn .t, .alrt.ok .ai, .alrt.ok .t, .alrt.info .ai, .alrt.info .t, .alrt.plain .ai, .alrt.plain .t { color: var(--ink); }
+  .alrt.warn .s, .alrt.ok .s, .alrt.info .s, .alrt.plain .s { color: var(--mid); }
+  @media (max-width: 1000px) { .g3 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 700px) { .g3, .g2 { grid-template-columns: 1fr; } .stg small { display: none; } }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <h1>Plato v1.1 wireframes</h1>
+  <p>From <code>docs/v1.1/product-specification.md</code>. Only what v1.1 adds or changes; the rest is as in the <a href="../../v1/wireframes/index.html">v1 wireframes</a>. Same build note: shadcn/ui wins. OpenAI's labels (<b>Continue with ChatGPT</b>, <b>Using ChatGPT plan</b>, <b>Manage usage</b>) are exact; the button and logo use OpenAI's assets.</p>
+  <p><b>Navigation:</b> v1's sidebar gains Settings at the bottom (the ChatGPT connection) and, while a build exists, a build indicator. Each build has its own page.</p>
+  <div class="map">
+    <div class="st">Connect<small>once, in Settings</small></div><span class="ar">→</span>
+    <div class="st">Request</div><span class="ar">→</span>
+    <div class="st">Build<small>background</small></div><span class="ar">→</span>
+    <div class="st">Ready</div><span class="ar">→</span>
+    <div class="st off">Learn<small>as in v1</small></div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#settings">A · Settings</a>
+  <a href="#request">B · Request</a>
+  <a href="#shell">C · Today &amp; Library</a>
+  <a href="#build">D · Build page</a>
+  <a href="#operator">E · Operator</a>
+  <a href="#mobile">F · Phone</a>
+  <a href="#a11y">G · Accessibility</a>
+</nav>
+
+<!-- ============================================================ -->
+<section class="flow" id="settings">
+  <h2>A. Settings: ChatGPT connection</h2>
+  <p class="sub">Settings sits at the bottom of the sidebar. ChatGPT is one row: logo, account, a status light and ⋯. Every action is in ⋯; ones you can't take now are greyed.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>A1 · Connected, menu open <span>F10</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / settings</div></div>
+        <div class="app">
+          <div class="side"><div class="logo">Plato</div><div class="nav">Today</div><div class="nav">Library</div><div class="btn ghost sm">+ New request</div><div class="nav on set">⚙ Settings</div></div>
+          <div class="main set">
+            <div class="h">Settings</div>
+            <div class="k">Connections</div>
+            <div class="crow">
+              <span class="logo-sq"><span class="gl"></span></span>
+              <div class="grow"><div class="t">ChatGPT</div><div class="s">sam@example.com · Personal workspace</div><div class="s" style="margin-top:4px"><span class="usage"><span class="gl"></span>Using ChatGPT plan · <span class="link">Manage usage</span></span></div></div>
+              <span class="stat"><i class="light ok"></i>Connected</span>
+              <span class="ic">⋯</span>
+              <div class="menu" style="top:calc(100% + 4px)"><div>Manage usage ↗</div><div>Switch account</div><hr><div class="off"><span class="gl"></span>Continue with ChatGPT</div><div class="off">Allow plan usage</div><div class="off">Reconnect</div><div class="off">Check eligibility</div><hr><div>Disconnect</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <figure class="d">
+      <figcaption>A2 · The row and its menu in each status <span>F10</span></figcaption>
+      <div class="g2">
+        <div class="thumb" style="min-height:300px">
+          <div class="when">Not connected</div>
+          <div class="crow"><span class="logo-sq"><span class="gl"></span></span><div class="grow"><div class="t">ChatGPT</div><div class="s">Connect to build courses with your ChatGPT plan</div></div><span class="stat"><i class="light none"></i>Not connected</span><span class="ic">⋯</span>
+            <div class="menu">
+              <div class="off">Manage usage ↗</div>
+              <div class="off">Switch account</div>
+              <hr>
+              <div><span class="gl"></span>Continue with ChatGPT</div>
+              <div class="off">Allow plan usage</div>
+              <div class="off">Reconnect</div>
+              <div class="off">Check eligibility</div>
+              <hr>
+              <div class="off">Disconnect</div>
+            </div>
+          </div>
+        </div>
+        <div class="thumb" style="min-height:300px">
+          <div class="when">Plan usage off</div>
+          <div class="crow"><span class="logo-sq"><span class="gl"></span></span><div class="grow"><div class="t">ChatGPT</div><div class="s">sam@example.com</div></div><span class="stat"><i class="light warn"></i>Plan usage off</span><span class="ic">⋯</span>
+            <div class="menu">
+              <div class="off">Manage usage ↗</div>
+              <div class="off">Switch account</div>
+              <hr>
+              <div class="off"><span class="gl"></span>Continue with ChatGPT</div>
+              <div>Allow plan usage</div>
+              <div class="off">Reconnect</div>
+              <div class="off">Check eligibility</div>
+              <hr>
+              <div>Disconnect</div>
+            </div>
+          </div>
+        </div>
+        <div class="thumb" style="min-height:300px">
+          <div class="when">Needs reconnecting</div>
+          <div class="crow"><span class="logo-sq"><span class="gl"></span></span><div class="grow"><div class="t">ChatGPT</div><div class="s">sam@example.com</div></div><span class="stat"><i class="light bad"></i>Needs reconnecting</span><span class="ic">⋯</span>
+            <div class="menu">
+              <div class="off">Manage usage ↗</div>
+              <div class="off">Switch account</div>
+              <hr>
+              <div class="off"><span class="gl"></span>Continue with ChatGPT</div>
+              <div class="off">Allow plan usage</div>
+              <div>Reconnect</div>
+              <div class="off">Check eligibility</div>
+              <hr>
+              <div>Disconnect</div>
+            </div>
+          </div>
+        </div>
+        <div class="thumb" style="min-height:300px">
+          <div class="when">Not eligible</div>
+          <div class="crow"><span class="logo-sq"><span class="gl"></span></span><div class="grow"><div class="t">ChatGPT</div><div class="s">sam@example.com</div></div><span class="stat"><i class="light warn"></i>Not eligible</span><span class="ic">⋯</span>
+            <div class="menu">
+              <div class="off">Manage usage ↗</div>
+              <div>Switch account</div>
+              <hr>
+              <div class="off"><span class="gl"></span>Continue with ChatGPT</div>
+              <div class="off">Allow plan usage</div>
+              <div class="off">Reconnect</div>
+              <div>Check eligibility</div>
+              <hr>
+              <div>Disconnect</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Same menu, same order, in every status; only what's greyed changes.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>A3 · First use and disconnect <span>F10 · AlertDialog</span></figcaption>
+      <div class="g2">
+        <div class="thumb">
+          <div class="when">Once, after the first connect</div>
+          <div class="t">You're using your ChatGPT plan</div>
+          <div class="s">Eligible usage in Plato counts toward your ChatGPT plan. You can manage it in ChatGPT settings.</div>
+          <div class="acts"><span class="btn ghost sm">Manage usage</span><span class="btn sm">Got it</span></div>
+        </div>
+        <div class="thumb">
+          <div class="when">Disconnect</div>
+          <div class="t">Disconnect ChatGPT?</div>
+          <div class="s">A running build pauses and your courses stay. To fully revoke access, also remove Plato in <span class="link">ChatGPT settings</span>.</div>
+          <div class="acts"><span class="btn ghost sm">Keep connected</span><span class="btn sm destr">Disconnect</span></div>
+        </div>
+      </div>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="request">
+  <h2>B. Request</h2>
+  <p class="sub">Same box as v1, with Build course. If building can't start, a dialog says why and points to Settings.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>B1 · New request, connected <span>F11 · F12</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / new</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm on">+ New request</div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main player">
+            <div class="h">What do you want to learn, and why?</div>
+            <div class="input area lg filled">My mum asked if mRNA vaccines change your DNA and I couldn't answer. I did high school biology. About 5 hours.</div>
+            <div class="s">Mention what you know, how deep to go, your time, and sources you trust.</div>
+            <div class="acts"><span class="grow"><span class="usage"><span class="gl"></span>Using ChatGPT plan · <span class="link">Manage usage</span></span></span><span class="btn ghost">Cancel</span><span class="btn">Build course</span></div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Build course returns you to Today. If another build is running, this one queues.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>B2 · After Build course, when ChatGPT isn't ready <span>F11 · F12 · AlertDialog</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / new</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm on">+ New request</div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main player">
+            <div class="h">What do you want to learn, and why?</div>
+            <div class="input area lg filled">My mum asked if mRNA vaccines change your DNA and I couldn't answer. I did high school biology. About 5 hours.</div>
+            <div class="s">Mention what you know, how deep to go, your time, and sources you trust.</div>
+            <div class="acts"><span class="btn ghost">Cancel</span><span class="btn">Build course</span></div>
+          </div>
+        </div>
+        <div class="scrim"></div>
+        <div class="dlg">
+          <div class="t">Fix your ChatGPT connection</div>
+          <div class="s">Your request is saved. Build it from Today once the connection is fixed.</div>
+          <div class="acts"><span class="btn ghost sm">Not now</span><span class="btn sm">Go to Settings</span></div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>One dialog for every connection problem. Build course on a not-started request (C1) opens it too.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>B3 · Usage limit, and a failed start <span>F10 · F12</span></figcaption>
+      <div class="g2">
+        <div class="thumb">
+          <div class="when">Dialog: usage limit reached</div>
+          <div class="t">Usage limit reached</div>
+          <div class="s">Your progress is saved. To continue, check your plan or any limit you set for Plato in ChatGPT settings.</div>
+          <div class="acts"><span class="btn ghost sm">View build</span><span class="btn sm">Manage usage</span></div>
+        </div>
+        <div class="thumb">
+          <div class="when">Toast, not a dialog: couldn't start</div>
+          <div class="toast"><span>Couldn't reach ChatGPT. Your request is saved.</span><span class="btn ghost sm">Try again</span></div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>The usage limit gets its own dialog: the same message at every entry point, with Manage usage as the main action.</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="shell">
+  <h2>C. Today and Library</h2>
+  <p class="sub">Outside the build page you only see that a build is running, queued or paused. Never in the player.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>C1 · Today, a build running <span>F8 · F11</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / today</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav on">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+            <div class="nav bldnav"><span class="sd run">Course building</span></div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main">
+            <div class="spread">
+              <span class="h">Today</span>
+              <div class="showed"><span class="big">37</span><span class="s">days you've<br>shown up</span></div>
+            </div>
+            <div class="cols">
+              <div class="stack">
+                <div class="box lead">
+                  <div><div class="t">Your session</div><div class="s">9 reviews, then Lesson 4 from Recall</div></div>
+                  <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div>
+                </div>
+                <div class="btns fill"><span class="btn ghost sm">Reviews only · ~3 min</span><span class="btn ghost sm">Full lesson</span></div>
+              </div>
+              <div class="stack">
+                <div class="k">Continue learning</div>
+                <div class="list">
+                  <div class="item"><div class="grow"><div class="t">Bayesian reasoning basics</div><div class="s">3 of 6 completed</div><div class="bar"><i style="width:50%"></i></div></div><span class="chev"></span></div>
+                </div>
+                <div class="k">Builds</div>
+                <div class="list">
+                  <div class="item"><div class="grow"><div>How mRNA vaccines work</div><span class="sd run">Building</span></div><span class="chev"></span></div>
+                  <div class="item"><div class="grow"><div>Stoic philosophy for mornings</div><span class="sd wait">Queued</span></div><span class="chev"></span></div>
+                </div>
+                <div class="k">Requests</div>
+                <div class="list">
+                  <div class="item"><div class="grow"><div>Climate tipping points</div><span class="sd idle">Not started</span></div><span class="ic">⋯</span></div>
+                  <div class="item"><div class="grow"><div>Rust ownership</div><span class="sd idle">Not started</span></div><span class="ic">⋯</span></div>
+                  <div class="item"><div class="grow"><div>History of Rome</div><span class="sd bad">Not built</span></div><span class="chev"></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Building and not-built rows open the build page. Not-started rows have ⋯ with Build course, greyed when it can't run (Rust ownership is being built from the command line).</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>C2 · Library, when a build pauses <span>F9 · F11</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / library</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav on">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+            <div class="nav bldnav"><span class="sd pause">Course paused</span></div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main">
+            <div class="h">Library</div>
+            <div class="k">Continue learning</div>
+            <div class="cards">
+              <div class="card"><div class="cover">Bayes</div><div class="in"><div class="t">Bayesian reasoning basics</div><div class="s">3 of 6 completed</div><div class="bar"><i style="width:50%"></i></div></div></div>
+            </div>
+            <div class="k">Builds</div>
+            <div class="cards">
+              <div class="card req"><div class="in"><div class="s">How mRNA vaccines work</div><span class="sd pause">Paused</span></div></div>
+              <div class="card req"><div class="in"><div class="s">Stoic philosophy for mornings</div><span class="sd wait">Queued</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="toast float"><span class="sd pause">How mRNA vaccines work is paused</span><span class="btn ghost sm">View build</span></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>When a build pauses or ends, a toast appears and the sidebar line changes. Others: “How mRNA vaccines work is ready” [Open course], “Couldn't build History of Rome” [View build]. In the player, both wait until you leave.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>C3 · Today, back after a build finished <span>F11</span></figcaption>
+      <div class="win">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / today</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav on">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main">
+            <div class="alrt ok"><span class="ai">✓</span><div class="grow"><div class="t">How mRNA vaccines work is ready</div><div class="s">Built while you were away.</div></div><span class="btn sm">Open course</span><span class="ic">×</span></div>
+            <div class="spread">
+              <span class="h">Today</span>
+              <div class="showed"><span class="big">37</span><span class="s">days you've<br>shown up</span></div>
+            </div>
+            <div class="cols">
+              <div class="box lead"><div><div class="t">Your session</div><div class="s">9 reviews, then Lesson 4 from Recall</div></div>
+                <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div></div>
+              <div class="stack"><div class="k">Ready</div>
+                <div class="list"><div class="item"><div class="grow"><div class="t">How mRNA vaccines work</div><div class="s">12 lessons · ~5 hrs</div></div><span class="chev"></span></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="build">
+  <h2>D. Build page</h2>
+  <p class="sub">The only place with stages and detail. Stages and their log in one terminal view. Cancel build lives in ⋯.</p>
+  <div class="row">
+
+    <figure class="d">
+      <figcaption>D1 · Building <span>F11 · §10</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / builds / 7f3a</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+            <div class="nav bldnav"><span class="sd run">Course building</span></div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main" style="padding:24px 28px;gap:18px">
+            <div class="spread">
+              <div><div class="h">How mRNA vaccines work</div>
+                <div class="s" style="display:flex;gap:10px;align-items:center;margin-top:4px"><span class="sd run">Building for 38 min</span><span class="usage"><span class="gl"></span>Using ChatGPT plan · <span class="link">Manage usage</span></span></div></div>
+              <span class="ic">⋯</span>
+            </div>
+            <div class="act2"><span class="sd run"></span><div><div class="t">Rewriting Lesson 7 so every claim cites a source</div><div class="s">Last activity 20 sec ago</div></div></div>
+            <div class="slog"><div class="sh ok"><span class="mk">✓</span><span class="nm">Key questions</span><span class="ex">3 questions ›</span></div><div class="sh ok"><span class="mk">✓</span><span class="nm">Scope</span><span class="ex">12 lessons · ~5 hrs ›</span></div><div class="sh ok"><span class="mk">✓</span><span class="nm">Research</span><span class="ex">14 sources ›</span></div><div class="sh run"><span class="mk">●</span><span class="nm">Write</span><span class="ex">Fixing · try 2 of 3</span></div><div class="ln2"><b>14:02</b><span class="">Wrote Lessons 1–12</span></div><div class="ln2"><b>14:03</b><span class="lg bad">Lesson 7: 2 claims without a source</span></div><div class="ln2"><b>14:03</b><span class="lg warn">Fixing Lesson 7 (try 2 of 3)</span></div><div class="ln2"><b>14:04</b><span class="lg dim">ChatGPT is busy. Retrying…</span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Check</span><span class="ex"></span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Publish</span><span class="ex"></span></div></div>
+</div>
+          </div>
+        </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>One terminal-style log grouped by stage, like the operator's (E1). Passed stages collapse to one line; › opens their result. The running stage shows its lines. Progress never goes back while fixing.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>D2 · Paused: usage ran out <span>F11</span></figcaption>
+      <div class="win fit">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">plato / builds / 7f3a</div></div>
+        <div class="app">
+          <div class="side">
+            <div class="logo">Plato</div>
+            <div class="nav">Today</div>
+            <div class="nav">Library</div>
+            <div class="btn ghost sm">+ New request</div>
+            <div class="nav bldnav"><span class="sd pause">Course paused</span></div>
+            <div class="nav set"><span class="gi">⚙</span>Settings</div>
+          </div>
+          <div class="main" style="padding:24px 28px;gap:18px">
+            <div class="spread">
+              <div><div class="h">How mRNA vaccines work</div><div class="s" style="margin-top:4px"><span class="sd pause">Paused after 22 min</span></div></div>
+              <span class="ic">⋯</span>
+            </div>
+            <div class="alrt warn"><span class="ai">!</span><div class="grow">
+              <div class="t">Usage limit reached</div>
+              <div class="s">Your progress is saved. To continue, check your plan or any limit you set for Plato in ChatGPT settings.</div>
+              </div><div class="acts"><span class="btn sm">Manage usage</span><span class="btn sm">Continue build</span></div></div>
+            <div class="slog"><div class="sh ok"><span class="mk">✓</span><span class="nm">Key questions</span><span class="ex">3 questions ›</span></div><div class="sh ok"><span class="mk">✓</span><span class="nm">Scope</span><span class="ex">12 lessons · ~5 hrs ›</span></div><div class="sh pause"><span class="mk">⏸</span><span class="nm">Research</span><span class="ex">paused</span></div><div class="ln2"><b>13:40</b><span class="">Found 9 sources</span></div><div class="ln2"><b>13:41</b><span class="lg warn">Usage limit reached. Build paused.</span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Write</span><span class="ex"></span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Check</span><span class="ex"></span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Publish</span><span class="ex"></span></div></div>
+</div>
+          </div>
+        </div>
+    </figure>
+
+    <figure class="d">
+      <figcaption>D3 · Other states: the alert at the top of the page <span>F11</span></figcaption>
+      <div class="stack" style="gap:10px">
+        <div class="alrt info"><span class="ai">…</span><div class="grow"><div class="t">Queued</div><div class="s">Starts when the current build finishes.</div></div></div>
+        <div class="alrt bad"><span class="ai">!</span><div class="grow"><div class="t">Fix your ChatGPT connection to continue</div><div class="s">Your build resumes where it left off.</div></div><div class="acts"><span class="btn sm destr">Go to Settings</span></div></div>
+        <div class="alrt warn"><span class="ai">!</span><div class="grow"><div class="t">Paused until you continue</div><div class="s">This build started on sam@example.com. Continuing uses sam@work.com's plan. <i>Or:</i> ChatGPT was unavailable for a while. <i>Or:</i> The build was interrupted.</div></div><div class="acts"><span class="btn sm">Continue build</span></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>With D2, that's every paused reason. A stall isn't a pause: the “Last activity” line says so.</span></li>
+      </ol>
+    </figure>
+
+    <figure class="d">
+      <figcaption>D4 · How a build ends <span>F11</span></figcaption>
+      <div class="stack" style="gap:10px">
+        <div class="alrt ok"><span class="ai">✓</span><div class="grow"><div class="t">How mRNA vaccines work is ready</div><div class="s">12 lessons · ~5 hrs</div></div><div class="acts"><span class="btn sm">Open course</span></div></div>
+        <div class="alrt bad"><span class="ai">✕</span><div class="grow"><div class="t">Couldn't build this course</div><div class="s">Some claims still didn't match their sources after 3 tries.</div></div><div class="acts"><span class="btn sm destr">Start over</span></div></div>
+        <div class="alrt plain"><span class="ai">–</span><div class="grow"><div class="t">Not built</div><div class="s">This doesn't look like a topic to learn. Try rephrasing it as a new request.</div></div></div>
+      </div>
+      <ol class="notes">
+        <li><i class="n">1</i><span>Start over and Cancel build confirm first. Cancel: “Usage so far still counts toward your ChatGPT plan. Your request stays saved to build later.” Start over: “This rebuilds the course from the beginning and uses your ChatGPT plan again.”</span></li>
+      </ol>
+    </figure>
+
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="operator">
+  <h2>E. Operator</h2>
+  <p class="sub">The same builder from the command line, on the operator's own ChatGPT connection. Command name is a placeholder.</p>
+  <div class="row">
+    <figure class="d">
+      <figcaption>E1 · Terminal <span>§10</span></figcaption>
+      <div class="term">
+        <div><span class="d">$</span> npm run build-course -- req_92c1</div>
+        <div class="d">Using ChatGPT plan · operator@example.com</div>
+        <div>✓ Key questions  <span class="d">3 questions</span></div>
+        <div>✓ Scope          <span class="d">8 lessons · ~3 hrs</span></div>
+        <div>✓ Research       <span class="d">11 sources</span></div>
+        <div class="y">● Write          Fixing · try 2 of 3</div>
+        <div class="d">  14:03  Lesson 5: 1 claim without a source</div>
+        <div class="d">○ Check   ○ Publish</div>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="mobile">
+  <h2>F. Phone</h2>
+  <p class="sub">Settings moves to a header icon. While building, a quiet line sits under the header.</p>
+  <div class="row">
+    <figure class="d">
+      <div class="g3">
+        <figure class="m">
+          <figcaption>F1 · Today</figcaption>
+          <div class="phone">
+            <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+            <div class="hdr"><span class="grow">Today</span><span class="ic">⚙</span><span class="ic">+</span></div>
+            <div class="spread" style="padding:8px 12px;border-bottom:var(--bw) solid var(--line);font-size:12px;font-weight:700"><span class="sd run">Course building</span><span class="chev"></span></div>
+            <div class="pbody">
+              <div class="box lead"><div><div class="t">Your session</div><div class="s">9 reviews, then Lesson 4</div></div>
+                <div class="split"><span class="go">▶ Start session</span><span class="len">15 min ▾</span></div></div>
+              <div class="k">Builds</div>
+              <div class="list"><div class="item"><div class="grow"><div>How mRNA vaccines work</div><span class="sd run">Building</span></div><span class="chev"></span></div></div>
+            </div>
+            <div class="tabbar"><div class="on">Today</div><div>Library</div></div>
+          </div>
+        </figure>
+        <figure class="m">
+          <figcaption>F2 · Build page</figcaption>
+          <div class="phone">
+            <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+            <div class="hdr"><span class="ic">‹</span><span class="grow">How mRNA vaccines work<small>Building for 38 min</small></span><span class="ic">⋯</span></div>
+            <div class="pbody">
+              <div class="slog sm"><div class="sh ok"><span class="mk">✓</span><span class="nm">Key questions</span><span class="ex">›</span></div><div class="sh ok"><span class="mk">✓</span><span class="nm">Scope</span><span class="ex">›</span></div><div class="sh ok"><span class="mk">✓</span><span class="nm">Research</span><span class="ex">›</span></div><div class="sh run"><span class="mk">●</span><span class="nm">Write</span><span class="ex">try 2 of 3</span></div><div class="ln2"><b>14:03</b><span class="lg bad">2 claims without a source</span></div><div class="ln2"><b>14:04</b><span class="lg warn">Fixing Lesson 7</span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Check</span><span class="ex"></span></div><div class="sh wait"><span class="mk">○</span><span class="nm">Publish</span><span class="ex"></span></div></div>
+            </div>
+            <div class="foot"><div class="usage" style="justify-content:center"><span class="gl"></span>Using ChatGPT plan · <span class="link">Manage usage</span></div></div>
+          </div>
+        </figure>
+        <figure class="m">
+          <figcaption>F3 · Settings</figcaption>
+          <div class="phone">
+            <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+            <div class="hdr"><span class="ic">‹</span><span class="grow">Settings</span></div>
+            <div class="pbody">
+              <div class="k">Connections</div>
+              <div class="crow"><span class="logo-sq"><span class="gl"></span></span><div class="grow"><div class="t">ChatGPT</div><div class="s">sam@example.com</div></div><span class="stat"><i class="light ok"></i></span><span class="ic">⋯</span></div>
+              <div class="s" style="margin-top:8px"><span class="usage"><span class="gl"></span>Using ChatGPT plan · <span class="link">Manage usage</span></span></div>
+              <div class="s">⋯ opens the same menu as a bottom sheet. On phone the light shows its word in the sheet title.</div>
+            </div>
+          </div>
+        </figure>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="flow" id="a11y">
+  <h2>G. Accessibility notes for hi-fi</h2>
+  <p class="sub">v1's notes still apply. Added:</p>
+  <ul class="a11y">
+    <li><b>Announce (polite):</b> build status and stage changes, not each log line or the “Last activity” time.</li>
+    <li><b>Status:</b> every coloured dot has its word next to it; the dot is decorative. Stages are an ordered list, read as “Write, Fixing, try 2 of 3”.</li>
+    <li><b>Names:</b> the light always has its status word (read aloud on phone). ⋯ is “ChatGPT actions”. Greyed menu items are announced as unavailable. Toast actions are also reachable from the build page.</li>
+    <li><b>Leaving for ChatGPT:</b> those buttons say they open ChatGPT; on return, focus goes to the ChatGPT heading.</li>
+  </ul>
+</section>
+
+</body>
+</html>
